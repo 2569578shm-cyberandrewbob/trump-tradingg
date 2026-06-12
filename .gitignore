@@ -1,0 +1,14 @@
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+*.keystore
+
+# Node
+node_modules/
+dist/
+.env
+firebase-service-account.json
+*.log

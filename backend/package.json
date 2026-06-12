@@ -1,0 +1,44 @@
+{
+  "name": "trump-trading-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "worker:ingest": "tsx src/ingestion/worker.ts",
+    "worker:analyze": "tsx src/ai/worker.ts",
+    "worker:notify": "tsx src/notifications/worker.ts",
+    "migrate": "tsx src/db/migrate.ts",
+    "seed": "tsx src/db/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src tests"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@fastify/cors": "^10.0.0",
+    "@fastify/helmet": "^12.0.0",
+    "@fastify/rate-limit": "^10.0.0",
+    "bcryptjs": "^2.4.3",
+    "bullmq": "^5.34.0",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.2.0",
+    "firebase-admin": "^13.0.0",
+    "ioredis": "5.10.1",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.1",
+    "rss-parser": "^3.13.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- upward candlestick chart mark -->
+    <path android:fillColor="#E53935" android:pathData="M34,62h8v16h-8z"/>
+    <path android:fillColor="#E53935" android:pathData="M37,56h2v28h-2z"/>
+    <path android:fillColor="#FB8C00" android:pathData="M50,48h8v22h-8z"/>
+    <path android:fillColor="#FB8C00" android:pathData="M53,42h2v34h-2z"/>
+    <path android:fillColor="#43A047" android:pathData="M66,32h8v26h-8z"/>
+    <path android:fillColor="#43A047" android:pathData="M69,26h2v38h-2z"/>
+</vector>
