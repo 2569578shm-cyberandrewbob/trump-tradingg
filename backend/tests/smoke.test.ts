@@ -71,4 +71,61 @@ describe.skipIf(!enabled)('Smoke: core endpoints', async () => {
     expect((await app.inject({ method: 'GET', url: '/feed' })).statusCode).toBe(401);
     expect((await app.inject({ method: 'GET', url: '/alerts' })).statusCode).toBe(401);
   });
+
+  it('GET /market-impact returns items with affected_assets', async () => {
+    const res = await app.inject({ method: 'GET', url: '/market-impact', headers: auth() });
+    expect(res.statusCode).toBe(200);
+    const { items } = res.json();
+    expect(Array.isArray(items)).toBe(true);
+    for (const it of items) expect(it).toHaveProperty('affected_assets');
+  });
+
+  it('GET /assets/affected returns aggregated buckets + disclaimer', async () => {
+    const res = await app.inject({ method: 'GET', url: '/assets/affected', headers: auth() });
+    expect(res.statusCode).toBe(200);
+    const b = res.json();
+    expect(b).toHaveProperty('topStocks');
+    expect(b).toHaveProperty('topEtfs');
+    expect(b).toHaveProperty('topCommodities');
+    expect(b).toHaveProperty('topSectors');
+    expect(b.disclaimer).toContain('Not financial advice');
+  });
+
+  it('/feed items carry market impact + summary', async () => {
+    const res = await app.inject({ method: 'GET', url: '/feed?limit=5', headers: auth() });
+    const items = res.json().items;
+    if (items.length) {
+      expect(items[0]).toHaveProperty('affected_assets');
+      expect(items[0]).toHaveProperty('market_impact_summary');
+    }
+  });
+});
+
+import { describe as d2, it as it2, expect as e2 } from 'vitest';
+import { analyzeMarketImpact } from '../src/market/marketImpact.js';
+
+d2('Market impact keyword mapping', () => {
+  it2('war/escalation → defense + energy + gold + airlines + indices', () => {
+    const r = analyzeMarketImpact({ text: 'Trump orders military strike on Iran in the Middle East', urgency: 80 });
+    const syms = [...r.affected_assets, ...r.affected_etfs].map((a) => a.symbol);
+    expect(syms).toContain('LMT'); expect(syms).toContain('XOM');
+    expect(syms).toContain('GLD'); expect(syms).toContain('SPY');
+    expect(r.affected_assets.some((a) => a.sector === 'Airlines')).toBe(true);
+  });
+  it2('tariffs → retailers + industrials + semis + China ETFs + steel', () => {
+    const r = analyzeMarketImpact({ text: 'Trump announces tariffs on China imports' });
+    const syms = [...r.affected_assets, ...r.affected_etfs].map((a) => a.symbol);
+    expect(syms).toContain('NVDA'); expect(syms).toContain('WMT');
+    expect(syms).toContain('FXI'); expect(syms).toContain('X');
+  });
+  it2('crypto → BTC, ETH, COIN, MSTR, MARA, RIOT, HOOD, IBIT', () => {
+    const r = analyzeMarketImpact({ text: 'Trump comments on Bitcoin and crypto regulation' });
+    const syms = [...r.affected_assets, ...r.affected_etfs, ...r.affected_macro_assets.map((m) => ({ symbol: m.asset }))].map((a) => a.symbol);
+    ['BTC', 'ETH', 'COIN', 'MSTR', 'MARA', 'RIOT', 'HOOD', 'IBIT'].forEach((s) => expect(syms).toContain(s));
+  });
+  it2('never emits advice language', () => {
+    const r = analyzeMarketImpact({ text: 'Trump tariffs war oil crypto fed', urgency: 90 });
+    const blob = JSON.stringify(r).toLowerCase();
+    [' buy ', ' sell ', 'short ', 'long ', 'target price', 'guaranteed'].forEach((w) => expect(blob).not.toContain(w));
+  });
 });

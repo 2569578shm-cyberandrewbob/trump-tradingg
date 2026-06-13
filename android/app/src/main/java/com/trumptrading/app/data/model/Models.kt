@@ -1,5 +1,6 @@
 package com.trumptrading.app.data.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 enum class RiskLevel { Low, Medium, High, Critical;
@@ -31,13 +32,89 @@ data class Alert(
     val confirmationCount: Int = 0,
     val sourceReliability: Int = 50,
     val tickers: List<String> = emptyList(),
+    // ── Market impact (computed by backend) ──
+    @SerialName("affected_assets") val affectedAssets: List<AffectedAsset> = emptyList(),
+    @SerialName("affected_etfs") val affectedEtfs: List<AffectedEtf> = emptyList(),
+    @SerialName("affected_commodities") val affectedCommodities: List<AffectedCommodity> = emptyList(),
+    @SerialName("affected_macro_assets") val affectedMacroAssets: List<AffectedMacro> = emptyList(),
+    @SerialName("market_impact_summary") val marketImpactSummary: String = "",
 ) {
     val risk: RiskLevel get() = RiskLevel.from(riskLevel)
     val primaryCategory: String get() = categories.firstOrNull() ?: "General"
     val isOfficial: Boolean get() = sourceKind == "direct_official"
     /** A statement is "confirmed" when flagged confirmed OR corroborated by another source. */
     val isConfirmed: Boolean get() = confirmed || confirmationCount > 0
+    val hasMarketImpact: Boolean get() =
+        affectedAssets.isNotEmpty() || affectedEtfs.isNotEmpty() ||
+        affectedCommodities.isNotEmpty() || affectedMacroAssets.isNotEmpty()
 }
+
+@Serializable
+data class AffectedAsset(
+    val symbol: String,
+    val name: String = "",
+    @SerialName("asset_type") val assetType: String = "stock",
+    val sector: String = "",
+    @SerialName("possible_impact") val possibleImpact: String = "uncertain",
+    @SerialName("impact_reason") val impactReason: String = "",
+    val confidence: Int = 0,
+    @SerialName("impact_strength") val impactStrength: String = "low",
+    @SerialName("time_sensitivity") val timeSensitivity: String = "short-term",
+    @SerialName("risk_note") val riskNote: String = "",
+)
+
+@Serializable
+data class AffectedEtf(
+    val symbol: String,
+    val name: String = "",
+    val category: String = "ETF",
+    @SerialName("possible_impact") val possibleImpact: String = "uncertain",
+    val reason: String = "",
+    val confidence: Int = 0,
+)
+
+@Serializable
+data class AffectedCommodity(
+    val symbol: String,
+    val name: String = "",
+    @SerialName("possible_impact") val possibleImpact: String = "uncertain",
+    val reason: String = "",
+    val confidence: Int = 0,
+)
+
+@Serializable
+data class AffectedMacro(
+    val asset: String,
+    @SerialName("possible_impact") val possibleImpact: String = "uncertain",
+    val reason: String = "",
+    val confidence: Int = 0,
+)
+
+// ── /assets/affected aggregate ──
+@Serializable
+data class AffectedAssetAgg(
+    val symbol: String,
+    val name: String = "",
+    val sector: String? = null,
+    val category: String? = null,
+    val relatedItems: Int = 0,
+    val avgConfidence: Int = 0,
+    val dominantImpact: String = "uncertain",
+)
+@Serializable data class SectorAgg(val sector: String, val count: Int)
+@Serializable
+data class AffectedMarketsResponse(
+    val windowHours: Int = 24,
+    val relatedNewsItems: Int = 0,
+    val averageUrgency: Int = 0,
+    val strongestCategory: String? = null,
+    val latestHeadline: String = "",
+    val topStocks: List<AffectedAssetAgg> = emptyList(),
+    val topEtfs: List<AffectedAssetAgg> = emptyList(),
+    val topCommodities: List<AffectedAssetAgg> = emptyList(),
+    val topSectors: List<SectorAgg> = emptyList(),
+    val disclaimer: String = "",
+)
 
 @Serializable data class AlertsResponse(val alerts: List<Alert>)
 @Serializable data class SimilarAlert(val id: String, val summary: String, val riskLevel: String, val createdAt: String)

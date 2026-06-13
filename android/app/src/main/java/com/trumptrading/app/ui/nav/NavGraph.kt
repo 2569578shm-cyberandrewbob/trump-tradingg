@@ -8,6 +8,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +32,7 @@ object Routes {
     const val FEED = "feed"
     const val DETAIL = "alert/{alertId}"
     const val WATCHLIST = "watchlist"
+    const val MARKETS = "markets"
     const val SETTINGS = "settings"
     const val NOTIF_PREFS = "notification_prefs"
     const val SOURCES = "sources"
@@ -82,6 +84,7 @@ fun AppNavGraph(
     val tabs = listOf(
         BottomTab(Routes.DASHBOARD, "Dashboard") { Icon(Icons.Filled.Dashboard, null) },
         BottomTab(Routes.FEED, "Alerts") { Icon(Icons.AutoMirrored.Filled.List, null) },
+        BottomTab(Routes.MARKETS, "Markets") { Icon(Icons.Filled.TrendingUp, null) },
         BottomTab(Routes.WATCHLIST, "Watchlist") { Icon(Icons.Filled.Star, null) },
         BottomTab(Routes.SETTINGS, "Settings") { Icon(Icons.Filled.Settings, null) },
     )
@@ -124,6 +127,7 @@ fun AppNavGraph(
                 AlertDetailScreen(nav, entry.arguments?.getString("alertId").orEmpty())
             }
             composable(Routes.WATCHLIST) { WatchlistScreen(nav) }
+            composable(Routes.MARKETS) { AffectedMarketsScreen(nav) }
             composable(Routes.SETTINGS) { SettingsScreen(nav) }
             composable(Routes.NOTIF_PREFS) { NotificationPrefsScreen(nav) }
             composable(Routes.SOURCES) { SourcesScreen(nav) }

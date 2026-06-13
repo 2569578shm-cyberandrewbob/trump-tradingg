@@ -65,4 +65,7 @@ interface ApiService {
 
     @GET("health")
     suspend fun getHealth(): HealthResponse
+
+    @GET("assets/affected")
+    suspend fun getAffectedMarkets(): AffectedMarketsResponse
 }

@@ -7,16 +7,106 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.trumptrading.app.data.model.AffectedAsset
 import com.trumptrading.app.data.model.Alert
 import com.trumptrading.app.data.model.RiskLevel
 import com.trumptrading.app.ui.theme.TradingColors
 import com.trumptrading.app.ui.theme.riskColor
+
+/** Color for a possible-impact direction (informational, not advice). */
+fun impactColor(direction: String): Color = when (direction) {
+    "positive" -> TradingColors.Low
+    "negative" -> TradingColors.Critical
+    "mixed" -> TradingColors.High
+    else -> TradingColors.TextSecondary
+}
+
+/**
+ * Expandable "Possible market impact" section. Collapsed shows the top 3
+ * affected assets; expanded shows the full breakdown with reasons.
+ * Strictly informational — no buy/sell language.
+ */
+@Composable
+fun MarketImpactSection(alert: Alert) {
+    if (!alert.hasMarketImpact) return
+    var expanded by remember(alert.id) { mutableStateOf(false) }
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(TradingColors.SurfaceHigh, RoundedCornerShape(8.dp))
+            .clickable { expanded = !expanded }
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "POSSIBLE MARKET IMPACT",
+                style = MaterialTheme.typography.labelSmall,
+                color = TradingColors.Accent,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.weight(1f))
+            Text(if (expanded) "Show less ▲" else "Show more ▼", style = MaterialTheme.typography.labelSmall, color = TradingColors.TextSecondary)
+        }
+
+        // Group affected stocks by sector → "Defense: LMT, RTX, NOC — possible positive"
+        val bySector = alert.affectedAssets.groupBy { it.sector }
+        val sectorsToShow = if (expanded) bySector.entries.toList() else bySector.entries.take(3)
+        sectorsToShow.forEach { (sector, assets) ->
+            val dir = assets.firstOrNull()?.possibleImpact ?: "uncertain"
+            val syms = assets.take(if (expanded) 8 else 3).joinToString(", ") { it.symbol }
+            Text(
+                buildString {
+                    append("$sector: $syms")
+                    append(" — possible ${dir} impact")
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = impactColor(dir),
+            )
+        }
+
+        if (!expanded && bySector.size > 3) {
+            Text("+${bySector.size - 3} more sectors…", style = MaterialTheme.typography.labelSmall, color = TradingColors.TextSecondary)
+        }
+
+        if (expanded) {
+            if (alert.affectedEtfs.isNotEmpty()) {
+                ImpactLine("ETFs", alert.affectedEtfs.joinToString(", ") { it.symbol }, alert.affectedEtfs.first().possibleImpact)
+            }
+            if (alert.affectedCommodities.isNotEmpty()) {
+                ImpactLine("Commodities", alert.affectedCommodities.joinToString(", ") { it.symbol }, alert.affectedCommodities.first().possibleImpact)
+            }
+            if (alert.affectedMacroAssets.isNotEmpty()) {
+                ImpactLine("Macro", alert.affectedMacroAssets.joinToString(", ") { it.asset }, alert.affectedMacroAssets.first().possibleImpact)
+            }
+            if (alert.marketImpactSummary.isNotBlank()) {
+                Text(alert.marketImpactSummary, style = MaterialTheme.typography.labelSmall, color = TradingColors.TextSecondary)
+            }
+            Text(
+                "Informational only. Not financial advice. Market reactions are uncertain.",
+                style = MaterialTheme.typography.labelSmall,
+                color = TradingColors.TextSecondary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ImpactLine(label: String, symbols: String, dir: String) {
+    Text("$label: $symbols — possible $dir impact", style = MaterialTheme.typography.labelMedium, color = impactColor(dir))
+}
 
 @Composable
 fun RiskBadge(risk: RiskLevel, modifier: Modifier = Modifier) {
@@ -90,6 +180,7 @@ fun AlertCard(alert: Alert, onClick: () -> Unit) {
                     color = TradingColors.Accent,
                 )
             }
+            MarketImpactSection(alert)
         }
     }
 }

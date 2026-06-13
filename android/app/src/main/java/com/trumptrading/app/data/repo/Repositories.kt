@@ -72,6 +72,7 @@ class AlertsRepository @Inject constructor(private val api: ApiService) {
     suspend fun dashboard(): DashboardResponse = api.getDashboard()
     suspend fun detail(id: String): AlertDetailResponse = api.getAlert(id)
     suspend fun byTicker(ticker: String): List<Alert> = api.getAlertsByTicker(ticker).alerts
+    suspend fun affectedMarkets(): AffectedMarketsResponse = api.getAffectedMarkets()
 }
 
 @Singleton
