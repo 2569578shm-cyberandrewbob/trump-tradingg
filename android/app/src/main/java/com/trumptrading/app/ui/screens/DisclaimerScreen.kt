@@ -44,7 +44,7 @@ class DisclaimerViewModel @Inject constructor(private val repo: SourcesRepositor
 
 @Composable
 fun DisclaimerScreen(nav: NavHostController, vm: DisclaimerViewModel = hiltViewModel()) {
-    val (disclaimer, privacy) by vm.text.collectAsState()
+    val (disclaimer, privacy) = vm.text.collectAsState().value
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
