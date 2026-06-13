@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trump Trading — App Mockup</title>
+<style>
+  :root{--bg:#0B0F14;--surface:#121821;--surface2:#1A2230;--border:#243044;--critical:#E53935;--high:#FB8C00;--medium:#FDD835;--low:#66BB6A;--accent:#3D8BFD;--text:#E6EBF2;--text2:#8A97A8}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:#05070A;color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;padding:24px 0 60px}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 16px}
+  .intro{text-align:center;margin-bottom:22px}
+  .intro h1{font-size:22px;font-weight:800}
+  .intro p{font-size:13px;color:var(--text2);margin-top:4px}
+  .badge{display:inline-block;background:rgba(61,139,253,.15);border:1px solid var(--accent);color:var(--accent);font-size:11px;padding:3px 10px;border-radius:20px;margin-top:8px}
+  /* phone frames row */
+  .phones{display:flex;gap:26px;flex-wrap:wrap;justify-content:center}
+  .phone{width:340px;flex-shrink:0}
+  .phone-label{text-align:center;font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600;letter-spacing:.3px}
+  .screen{background:var(--bg);border:8px solid #11161d;border-radius:30px;overflow:hidden;height:710px;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+  .notch{height:22px;background:#11161d;display:flex;align-items:center;justify-content:center}
+  .notch::after{content:'';width:90px;height:5px;background:#05070A;border-radius:3px}
+  .head{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 15px;display:flex;align-items:center;justify-content:space-between}
+  .logo{display:flex;align-items:center;gap:9px}
+  .logo-ic{width:30px;height:30px;background:var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:15px}
+  .logo b{font-size:15px}.logo div small{font-size:9px;color:var(--text2);display:block}
+  .live{display:flex;align-items:center;gap:5px;background:rgba(229,57,53,.15);border:1px solid var(--critical);color:var(--critical);border-radius:20px;padding:3px 9px;font-size:10px;font-weight:700}
+  .live .dot{width:6px;height:6px;border-radius:50%;background:var(--critical);animation:p 1.2s infinite}
+  @keyframes p{0%,100%{opacity:1}50%{opacity:.25}}
+  .body{flex:1;overflow-y:auto;padding:13px}
+  .ptitle{font-size:19px;font-weight:800;margin-bottom:2px}
+  .psub{font-size:11px;color:var(--text2);margin-bottom:13px}
+  /* nav */
+  .nav{display:flex;background:var(--surface);border-top:1px solid var(--border)}
+  .nav div{flex:1;text-align:center;padding:8px 2px 7px;font-size:9px;color:var(--text2)}
+  .nav div.on{color:var(--accent)}
+  .nav div span{font-size:17px;display:block;margin-bottom:1px}
+  /* widgets */
+  .meter{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:15px;margin-bottom:14px}
+  .meter .r{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .meter h3{font-size:13px}.meter .score{font-size:27px;font-weight:900}
+  .track{height:11px;background:var(--surface2);border-radius:7px;overflow:hidden}
+  .fill{height:100%;border-radius:7px}
+  .lbls{display:flex;justify-content:space-between;font-size:9px;color:var(--text2);margin-top:5px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:11px;text-align:center}
+  .stat .v{font-size:22px;font-weight:800}.stat .l{font-size:9px;color:var(--text2);text-transform:uppercase;margin-top:3px}
+  .sec{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin:14px 0 8px}
+  .bar{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+  .bar .bl{font-size:11px;width:92px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar .bt{flex:1;height:7px;background:var(--surface2);border-radius:5px;overflow:hidden}
+  .bar .bf{height:100%;background:var(--accent);border-radius:5px}
+  .bar .bc{font-size:11px;color:var(--text2);width:22px;text-align:right;font-weight:600}
+  /* alert card */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:10px}
+  .acc{height:3px}.cb{padding:12px 13px}
+  .ct{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px}
+  .ctitle{font-size:13px;font-weight:600;line-height:1.35;flex:1}
+  .pill{font-size:9px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;padding:3px 8px;border-radius:20px;white-space:nowrap;height:fit-content}
+  .Critical{background:rgba(229,57,53,.18);color:var(--critical)}.High{background:rgba(251,140,0,.18);color:var(--high)}.Medium{background:rgba(253,216,53,.18);color:var(--medium)}.Low{background:rgba(102,187,106,.18);color:var(--low)}
+  .csrc{font-size:10px;color:var(--text2);margin-bottom:6px}
+  .official{color:var(--low);font-weight:700}.conf{color:var(--low)}.unconf{color:var(--medium)}
+  .csum{font-size:11.5px;color:var(--text2);line-height:1.45;margin-bottom:8px}
+  .tk{display:inline-block;font-size:10px;font-weight:700;background:rgba(61,139,253,.12);border:1px solid rgba(61,139,253,.3);color:var(--accent);padding:1px 6px;border-radius:4px;margin-right:4px}
+  .mi{margin-top:8px;background:var(--surface2);border-radius:8px;padding:9px 10px}
+  .mi-h{font-size:9px;font-weight:800;letter-spacing:.4px;color:var(--accent);display:flex;justify-content:space-between;margin-bottom:5px}
+  .mi-l{font-size:11px;margin-top:3px}
+  .pos{color:var(--low)}.neg{color:var(--critical)}.mix{color:var(--high)}.unc{color:var(--text2)}
+  .mi-note{font-size:9px;color:var(--text2);margin-top:6px}
+  .time{font-size:10px;color:var(--text2);margin-top:7px}
+  /* source rows */
+  .srow{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 12px;margin-bottom:8px}
+  .sr-t{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .sr-n{font-size:12px;font-weight:600}
+  .chip{font-size:9px;font-weight:700;text-transform:uppercase;padding:3px 8px;border-radius:20px}
+  .c-on{background:rgba(102,187,106,.18);color:var(--low)}.c-fail{background:rgba(229,57,53,.18);color:var(--critical)}.c-no{background:rgba(253,216,53,.18);color:var(--medium)}
+  .sr-m{font-size:10px;color:var(--text2);margin-top:5px}
+  .grp{font-size:11px;color:var(--accent);font-weight:700;margin:12px 0 7px}
+  /* settings */
+  .set{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+  .set .sl{font-size:12px}.set .sv{font-size:11px;color:var(--text2)}
+  .disc{font-size:10px;color:var(--text2);line-height:1.5;margin-top:14px;padding:10px;background:var(--surface);border-radius:8px;border:1px solid var(--border)}
+  .agg{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:13px;margin-bottom:9px}
+  .agg h4{font-size:12px;color:var(--accent);margin-bottom:9px}
+  .arow{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+  .asym{font-size:12px;font-weight:800;width:52px}
+  .aname{flex:1}.aname .n1{font-size:11px}.aname .n2{font-size:9px;color:var(--text2)}
+  .aimp{font-size:9px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="intro">
+    <h1>🇺🇸 Trump Trading — App Mockup</h1>
+    <p>Static design mockup with representative sample data. Shows the real Android UI: Dashboard, Live Alerts with market-impact, Affected Markets, Sources, Settings.</p>
+    <div class="badge">Mockup · sample data · not live</div>
+    <div style="margin-top:12px"><a href="./app.html" style="display:inline-block;background:var(--accent);color:#fff;font-size:13px;font-weight:600;padding:8px 18px;border-radius:22px;text-decoration:none">▶ Open the live version (real news feed) →</a></div>
+  </div>
+
+  <div class="phones">
+
+    <!-- ───────── DASHBOARD ───────── -->
+    <div class="phone">
+      <div class="phone-label">① Dashboard</div>
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="head"><div class="logo"><div class="logo-ic">T</div><div><b>Trump Trading</b><small>Live market intelligence</small></div></div><div class="live"><div class="dot"></div>LIVE</div></div>
+        <div class="body">
+          <div class="ptitle">Dashboard</div>
+          <div class="psub">Aggregated from 148 live items · Sat 13 Jun, 21:40 Cairo</div>
+          <div class="meter">
+            <div class="r"><h3>Market Risk Meter</h3><div class="score" style="color:var(--high)">68</div></div>
+            <div class="track"><div class="fill" style="width:68%;background:var(--high)"></div></div>
+            <div class="lbls"><span>Calm</span><span style="color:var(--high);font-weight:700">HEIGHTENED</span><span>Critical</span></div>
+          </div>
+          <div class="stats">
+            <div class="stat"><div class="v" style="color:var(--critical)">3</div><div class="l">Critical</div></div>
+            <div class="stat"><div class="v" style="color:var(--high)">14</div><div class="l">High</div></div>
+            <div class="stat"><div class="v" style="color:var(--medium)">22</div><div class="l">Medium</div></div>
+          </div>
+          <div class="sec">⚡ High-impact now</div>
+          <div class="card"><div class="acc" style="background:var(--critical)"></div><div class="cb">
+            <div class="ct"><div class="ctitle">Trump orders strike on Iranian targets after Strait of Hormuz incident</div><div class="pill Critical">Critical</div></div>
+            <div class="csrc">Reuters · <span class="official">OFFICIAL</span> · <span class="conf">✓ confirmed (3 src)</span></div>
+            <div><span class="tk">LMT</span><span class="tk">XOM</span><span class="tk">CL</span><span class="tk">GLD</span></div>
+          </div></div>
+          <div class="sec">Top affected sectors</div>
+          <div class="bar"><div class="bl">Energy</div><div class="bt"><div class="bf" style="width:100%"></div></div><div class="bc">41</div></div>
+          <div class="bar"><div class="bl">Defense</div><div class="bt"><div class="bf" style="width:78%"></div></div><div class="bc">32</div></div>
+          <div class="bar"><div class="bl">Airlines</div><div class="bt"><div class="bf" style="width:46%"></div></div><div class="bc">19</div></div>
+          <div class="sec">Most mentioned tickers</div>
+          <div class="bar"><div class="bl"><span class="tk">XOM</span></div><div class="bt"><div class="bf" style="width:100%"></div></div><div class="bc">28</div></div>
+          <div class="bar"><div class="bl"><span class="tk">LMT</span></div><div class="bt"><div class="bf" style="width:71%"></div></div><div class="bc">20</div></div>
+        </div>
+        <div class="nav"><div class="on"><span>📊</span>Dashboard</div><div><span>🔔</span>Alerts</div><div><span>📈</span>Markets</div><div><span>⭐</span>Watch</div><div><span>⚙️</span>Settings</div></div>
+      </div>
+    </div>
+
+    <!-- ───────── LIVE ALERTS ───────── -->
+    <div class="phone">
+      <div class="phone-label">② Live Alerts — with market impact</div>
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="head"><div class="logo"><div class="logo-ic">T</div><div><b>Trump Trading</b><small>Live market intelligence</small></div></div><div class="live"><div class="dot"></div>LIVE</div></div>
+        <div class="body">
+          <div class="ptitle">Live Alerts</div>
+          <div class="psub">39 urgent alerts · auto-refresh every 60s</div>
+
+          <div class="card"><div class="acc" style="background:var(--critical)"></div><div class="cb">
+            <div class="ct"><div class="ctitle">Trump orders strike on Iranian targets after Strait of Hormuz incident</div><div class="pill Critical">Critical</div></div>
+            <div class="csrc">Reuters · Geopolitics · <span class="conf">✓ confirmed</span></div>
+            <div class="csum">President says U.S. forces conducted a "precise and powerful" strike following attacks on shipping near the Strait of Hormuz.</div>
+            <div><span class="tk">LMT</span><span class="tk">RTX</span><span class="tk">XOM</span><span class="tk">CL</span></div>
+            <div class="mi">
+              <div class="mi-h"><span>⚡ POSSIBLE MARKET IMPACT</span><span style="color:var(--text2)">tap to expand</span></div>
+              <div class="mi-l pos">Defense: LMT, RTX, NOC — possible positive impact</div>
+              <div class="mi-l pos">Energy: XOM, CVX, COP — possible positive impact</div>
+              <div class="mi-l neg">Airlines: DAL, UAL, AAL — possible negative impact</div>
+              <div class="mi-note">+2 more sectors · Corroborated by multiple sources.</div>
+            </div>
+            <div class="time">🕐 4 min ago · Cairo</div>
+          </div></div>
+
+          <div class="card"><div class="acc" style="background:var(--high)"></div><div class="cb">
+            <div class="ct"><div class="ctitle">Trump on Truth Social: new 25% tariffs on Chinese EV imports "effective immediately"</div><div class="pill High">High</div></div>
+            <div class="csrc">Truth Social via News · Tariffs · <span class="unconf">○ unconfirmed</span></div>
+            <div class="csum">News report about a Truth Social post announcing fresh auto tariffs targeting Chinese manufacturers.</div>
+            <div><span class="tk">FXI</span><span class="tk">TSLA</span><span class="tk">NVDA</span></div>
+            <div class="mi">
+              <div class="mi-h"><span>⚡ POSSIBLE MARKET IMPACT</span><span style="color:var(--text2)">tap to expand</span></div>
+              <div class="mi-l neg">China: FXI, MCHI, KWEB — possible negative impact</div>
+              <div class="mi-l neg">Semiconductors: NVDA, AMD, TSM — possible negative impact</div>
+              <div class="mi-l pos">Materials: X, NUE, STLD — possible positive impact</div>
+              <div class="mi-note">+1 more sector · Unconfirmed single-source — lower confidence.</div>
+            </div>
+            <div class="time">🕐 12 min ago · Cairo</div>
+          </div></div>
+
+          <div class="card"><div class="acc" style="background:var(--medium)"></div><div class="cb">
+            <div class="ct"><div class="ctitle">Trump pressures Fed for rate cut, says dollar "too strong"</div><div class="pill Medium">Medium</div></div>
+            <div class="csrc">CNBC · Monetary Policy · <span class="conf">✓ confirmed</span></div>
+            <div><span class="tk">TLT</span><span class="tk">JPM</span><span class="tk">UUP</span></div>
+            <div class="mi">
+              <div class="mi-h"><span>⚡ POSSIBLE MARKET IMPACT</span><span style="color:var(--text2)">tap</span></div>
+              <div class="mi-l mix">Banking: JPM, BAC, WFC — possible mixed impact</div>
+              <div class="mi-l unc">Bonds: TLT, IEF — possible uncertain impact</div>
+            </div>
+            <div class="time">🕐 28 min ago · Cairo</div>
+          </div></div>
+        </div>
+        <div class="nav"><div><span>📊</span>Dashboard</div><div class="on"><span>🔔</span>Alerts</div><div><span>📈</span>Markets</div><div><span>⭐</span>Watch</div><div><span>⚙️</span>Settings</div></div>
+      </div>
+    </div>
+
+    <!-- ───────── AFFECTED MARKETS ───────── -->
+    <div class="phone">
+      <div class="phone-label">③ Affected Markets (new)</div>
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="head"><div class="logo"><div class="logo-ic">T</div><div><b>Trump Trading</b><small>Live market intelligence</small></div></div><div class="live"><div class="dot"></div>LIVE</div></div>
+        <div class="body">
+          <div class="ptitle">Affected Markets</div>
+          <div class="psub">Last 24h · 148 related items · avg urgency 46</div>
+          <div style="font-size:11px;color:var(--accent);margin-bottom:12px">Strongest theme: War escalation</div>
+          <div class="agg"><h4>Top affected stocks</h4>
+            <div class="arow"><div class="asym">XOM</div><div class="aname"><div class="n1">ExxonMobil</div><div class="n2">Energy · 355 items · conf 77</div></div><div class="aimp pos">possible positive</div></div>
+            <div class="arow"><div class="asym">LMT</div><div class="aname"><div class="n1">Lockheed Martin</div><div class="n2">Defense · 287 items · conf 81</div></div><div class="aimp pos">possible positive</div></div>
+            <div class="arow"><div class="asym">DAL</div><div class="aname"><div class="n1">Delta Air Lines</div><div class="n2">Airlines · 142 items · conf 60</div></div><div class="aimp neg">possible negative</div></div>
+          </div>
+          <div class="agg"><h4>Top affected ETFs</h4>
+            <div class="arow"><div class="asym">USO</div><div class="aname"><div class="n1">US Oil Fund</div><div class="n2">Oil ETF · 355 items</div></div><div class="aimp pos">possible positive</div></div>
+            <div class="arow"><div class="asym">ITA</div><div class="aname"><div class="n1">US Aerospace & Defense</div><div class="n2">Defense ETF · 287 items</div></div><div class="aimp pos">possible positive</div></div>
+            <div class="arow"><div class="asym">GLD</div><div class="aname"><div class="n1">SPDR Gold Shares</div><div class="n2">Gold ETF · 210 items</div></div><div class="aimp pos">possible positive</div></div>
+          </div>
+          <div class="agg"><h4>Top affected commodities</h4>
+            <div class="arow"><div class="asym">CL</div><div class="aname"><div class="n1">Crude Oil (WTI)</div><div class="n2">355 items</div></div><div class="aimp pos">possible positive</div></div>
+          </div>
+          <div class="agg"><h4>Top affected sectors</h4>
+            <div class="bar"><div class="bl">Energy</div><div class="bt"><div class="bf" style="width:100%"></div></div><div class="bc">283</div></div>
+            <div class="bar"><div class="bl">Defense</div><div class="bt"><div class="bf" style="width:73%"></div></div><div class="bc">207</div></div>
+            <div class="bar"><div class="bl">Airlines</div><div class="bt"><div class="bf" style="width:50%"></div></div><div class="bc">141</div></div>
+          </div>
+          <div class="disc">Informational only. Not financial advice. Market reactions are uncertain. Verify from original sources before trading.</div>
+        </div>
+        <div class="nav"><div><span>📊</span>Dashboard</div><div><span>🔔</span>Alerts</div><div class="on"><span>📈</span>Markets</div><div><span>⭐</span>Watch</div><div><span>⚙️</span>Settings</div></div>
+      </div>
+    </div>
+
+    <!-- ───────── SOURCES ───────── -->
+    <div class="phone">
+      <div class="phone-label">④ Sources — grouped + health</div>
+      <div class="screen">
+        <div class="notch"></div>
+        <div class="head"><div class="logo"><div class="logo-ic">T</div><div><b>Trump Trading</b><small>Live market intelligence</small></div></div><div class="live"><div class="dot"></div>LIVE</div></div>
+        <div class="body">
+          <div class="ptitle">Sources</div>
+          <div class="psub">49 connected · 1 failed · 54 total</div>
+          <div class="grp">Truth Social (Direct)</div>
+          <div class="srow"><div class="sr-t"><div class="sr-n">@realDonaldTrump</div><div class="chip c-on">Connected</div></div><div class="sr-m">OFFICIAL · Reliability 95/100 · 20 items</div></div>
+          <div class="grp">Official Government</div>
+          <div class="srow"><div class="sr-t"><div class="sr-n">White House — News</div><div class="chip c-on">Connected</div></div><div class="sr-m">OFFICIAL · Reliability 95/100 · 30 items</div></div>
+          <div class="srow"><div class="sr-t"><div class="sr-n">White House — Briefing Room</div><div class="chip c-fail">Failed</div></div><div class="sr-m">OFFICIAL · HTTP 404 — feed retired by whitehouse.gov</div></div>
+          <div class="grp">Market & Financial News</div>
+          <div class="srow"><div class="sr-t"><div class="sr-n">Reuters — Trump</div><div class="chip c-on">Connected</div></div><div class="sr-m">NEWS · Reliability 88/100 · 39 items</div></div>
+          <div class="grp">Truth Social via News</div>
+          <div class="srow"><div class="sr-t"><div class="sr-n">Truth Social via News — markets</div><div class="chip c-no">No items</div></div><div class="sr-m">NEWS · Reliability 72/100 · 0 items this poll</div></div>
+        </div>
+        <div class="nav"><div><span>📊</span>Dashboard</div><div><span>🔔</span>Alerts</div><div><span>📈</span>Markets</div><div><span>⭐</span>Watch</div><div class="on"><span>⚙️</span>Settings</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
