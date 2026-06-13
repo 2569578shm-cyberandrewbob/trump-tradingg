@@ -109,3 +109,28 @@ export async function persistAlert(
   await query(`UPDATE raw_statements SET status = 'processed' WHERE id = $1`, [rawStatementId]);
   return alert.id;
 }
+
+/**
+ * Re-check safeguards for an existing alert when its statement receives a new
+ * confirmation. If it now passes, we mark it confirmed.
+ */
+export async function promoteAlertIfConfirmed(rawStatementId: string): Promise<void> {
+  const row = await queryOne<{ id: string; confirmation_count: number; reliability_score: number }>(
+    `SELECT rs.id, rs.confirmation_count, COALESCE(sr.reliability_score, 50) as reliability_score
+     FROM raw_statements rs LEFT JOIN source_reliability sr ON sr.source_id = rs.source_id
+     WHERE rs.id = $1`,
+    [rawStatementId],
+  );
+  if (!row) return;
+
+  const isConfirmed = row.reliability_score >= env.MIN_RELIABILITY_FOR_CRITICAL || row.confirmation_count >= 2;
+  if (isConfirmed) {
+    await query(
+      `UPDATE processed_alerts
+       SET confirmed = TRUE,
+           notification_title = REGEXP_REPLACE(notification_title, '^UNCONFIRMED — ', '')
+       WHERE raw_statement_id = $1 AND confirmed = FALSE`,
+      [rawStatementId],
+    );
+  }
+}

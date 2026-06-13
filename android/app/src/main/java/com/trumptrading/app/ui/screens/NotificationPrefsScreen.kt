@@ -47,15 +47,20 @@ data class PrefsUiState(
 class PrefsViewModel @Inject constructor(private val repo: PrefsRepository) : ViewModel() {
     private val _state = MutableStateFlow(PrefsUiState())
     val state: StateFlow<PrefsUiState> = _state
+    private var job: kotlinx.coroutines.Job? = null
 
     init { load() }
 
     fun load() {
-        _state.value = PrefsUiState(loading = true)
-        viewModelScope.launch {
+        job?.cancel()
+        _state.value = _state.value.copy(loading = true, error = null)
+        job = viewModelScope.launch {
             runCatching { repo.get() }
-                .onSuccess { _state.value = PrefsUiState(loading = false, prefs = it) }
-                .onFailure { _state.value = PrefsUiState(loading = false, error = it.message) }
+                .onSuccess { _state.value = _state.value.copy(loading = false, prefs = it) }
+                .onFailure {
+                    if (it is kotlinx.coroutines.CancellationException) return@onFailure
+                    _state.value = _state.value.copy(loading = false, error = it.message)
+                }
         }
     }
 
@@ -64,13 +69,17 @@ class PrefsViewModel @Inject constructor(private val repo: PrefsRepository) : Vi
     }
 
     fun save() {
+        job?.cancel()
         _state.value = _state.value.copy(saving = true)
-        viewModelScope.launch {
+        job = viewModelScope.launch {
             runCatching {
                 repo.update(_state.value.prefs.copy(timezone = TimeZone.getDefault().id))
             }
                 .onSuccess { _state.value = _state.value.copy(saving = false, prefs = it, saved = true) }
-                .onFailure { _state.value = _state.value.copy(saving = false, error = it.message) }
+                .onFailure {
+                    if (it is kotlinx.coroutines.CancellationException) return@onFailure
+                    _state.value = _state.value.copy(saving = false, error = it.message)
+                }
         }
     }
 }

@@ -81,6 +81,12 @@ class WatchlistRepository @Inject constructor(private val api: ApiService) {
         api.addToWatchlist(TickerRequest(ticker.trim().uppercase()))
         return get()
     }
+    suspend fun addAll(tickers: List<String>): List<String> {
+        tickers.forEach { ticker ->
+            runCatching { api.addToWatchlist(TickerRequest(ticker.trim().uppercase())) }
+        }
+        return get()
+    }
     suspend fun remove(ticker: String): List<String> {
         api.removeFromWatchlist(ticker)
         return get()

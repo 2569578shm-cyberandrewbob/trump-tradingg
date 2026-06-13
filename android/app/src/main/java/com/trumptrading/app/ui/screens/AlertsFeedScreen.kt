@@ -38,28 +38,50 @@ data class FeedUiState(
 class FeedViewModel @Inject constructor(private val repo: AlertsRepository) : ViewModel() {
     private val _state = MutableStateFlow(FeedUiState())
     val state: StateFlow<FeedUiState> = _state
+    private var job: kotlinx.coroutines.Job? = null
 
     init { refresh() }
 
     fun refresh(risk: String? = _state.value.riskFilter) {
-        _state.value = FeedUiState(loading = true, riskFilter = risk)
-        viewModelScope.launch {
+        job?.cancel()
+        _state.value = _state.value.copy(loading = true, riskFilter = risk, error = null)
+        job = viewModelScope.launch {
             runCatching { repo.feed(risk = risk) }
-                .onSuccess { _state.value = FeedUiState(loading = false, alerts = it, riskFilter = risk, endReached = it.size < 30) }
-                .onFailure { _state.value = FeedUiState(loading = false, error = it.message, riskFilter = risk) }
+                .onSuccess { results ->
+                    _state.value = _state.value.copy(
+                        loading = false,
+                        alerts = results,
+                        riskFilter = risk,
+                        endReached = results.size < 30
+                    )
+                }
+                .onFailure {
+                    if (it is kotlinx.coroutines.CancellationException) return@onFailure
+                    _state.value = _state.value.copy(loading = false, error = it.message, riskFilter = risk)
+                }
         }
     }
 
     fun loadMore() {
-        val s = _state.value
-        if (s.loading || s.endReached) return
-        _state.value = s.copy(loading = true)
-        viewModelScope.launch {
-            runCatching { repo.feed(risk = s.riskFilter, offset = s.alerts.size) }
-                .onSuccess {
-                    _state.value = s.copy(loading = false, alerts = s.alerts + it, endReached = it.size < 30)
+        if (_state.value.loading || _state.value.endReached) return
+        job?.cancel()
+        _state.value = _state.value.copy(loading = true)
+        job = viewModelScope.launch {
+            val currentRisk = _state.value.riskFilter
+            val currentAlerts = _state.value.alerts
+            runCatching { repo.feed(risk = currentRisk, offset = currentAlerts.size) }
+                .onSuccess { more ->
+                    _state.value = _state.value.copy(
+                        loading = false,
+                        alerts = currentAlerts + more,
+                        endReached = more.size < 30,
+                        error = null
+                    )
                 }
-                .onFailure { _state.value = s.copy(loading = false, error = it.message) }
+                .onFailure {
+                    if (it is kotlinx.coroutines.CancellationException) return@onFailure
+                    _state.value = _state.value.copy(loading = false, error = it.message)
+                }
         }
     }
 }

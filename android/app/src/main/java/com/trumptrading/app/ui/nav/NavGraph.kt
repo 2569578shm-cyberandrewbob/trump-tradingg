@@ -1,5 +1,7 @@
 package com.trumptrading.app.ui.nav
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -8,6 +10,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -18,6 +21,8 @@ import com.trumptrading.app.data.repo.AuthRepository
 import com.trumptrading.app.ui.screens.*
 import com.trumptrading.app.ui.theme.TradingColors
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -39,8 +44,14 @@ private data class BottomTab(val route: String, val label: String, val icon: @Co
 /** Silently provisions the local default user (Andrew / personal). No login UI. */
 @HiltViewModel
 class AppBootstrapViewModel @Inject constructor(private val auth: AuthRepository) : ViewModel() {
+    private val _isReady = MutableStateFlow(false)
+    val isReady: StateFlow<Boolean> = _isReady
+
     init {
-        viewModelScope.launch { runCatching { auth.ensurePersonalSession() } }
+        viewModelScope.launch {
+            runCatching { auth.ensurePersonalSession() }
+            _isReady.value = true
+        }
     }
 }
 
@@ -48,9 +59,17 @@ class AppBootstrapViewModel @Inject constructor(private val auth: AuthRepository
 fun AppNavGraph(
     deepLinkAlertId: String?,
     onDeepLinkConsumed: () -> Unit,
-    @Suppress("UNUSED_PARAMETER") bootstrap: AppBootstrapViewModel = hiltViewModel(),
+    bootstrap: AppBootstrapViewModel = hiltViewModel(),
 ) {
     val nav = rememberNavController()
+    val isReady by bootstrap.isReady.collectAsState()
+
+    if (!isReady) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = TradingColors.Accent)
+        }
+        return
+    }
 
     LaunchedEffect(deepLinkAlertId) {
         if (deepLinkAlertId != null) {

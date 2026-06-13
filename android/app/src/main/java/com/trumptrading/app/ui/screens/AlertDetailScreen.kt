@@ -60,10 +60,8 @@ class AlertDetailViewModel @Inject constructor(
     fun saveTickers() {
         val tickers = _state.value.detail?.alert?.tickers ?: return
         viewModelScope.launch {
-            runCatching {
-                tickers.forEach { watchlist.add(it) }
-                watchlist.get()
-            }.onSuccess { _state.value = _state.value.copy(savedTickers = it.toSet()) }
+            runCatching { watchlist.addAll(tickers) }
+                .onSuccess { _state.value = _state.value.copy(savedTickers = it.toSet()) }
         }
     }
 }

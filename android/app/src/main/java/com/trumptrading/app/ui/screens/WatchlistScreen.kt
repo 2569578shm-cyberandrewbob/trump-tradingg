@@ -65,7 +65,8 @@ class WatchlistViewModel @Inject constructor(private val repo: WatchlistReposito
     fun remove(ticker: String) {
         viewModelScope.launch {
             runCatching { repo.remove(ticker) }
-                .onSuccess { _state.value = _state.value.copy(tickers = it) }
+                .onSuccess { _state.value = _state.value.copy(tickers = it, error = null) }
+                .onFailure { _state.value = _state.value.copy(error = it.message) }
         }
     }
 }

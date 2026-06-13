@@ -37,15 +37,20 @@ data class SourcesUiState(
 class SourcesViewModel @Inject constructor(private val repo: SourcesRepository) : ViewModel() {
     private val _state = MutableStateFlow(SourcesUiState())
     val state: StateFlow<SourcesUiState> = _state
+    private var job: kotlinx.coroutines.Job? = null
 
     init { load() }
 
     fun load() {
-        _state.value = SourcesUiState(loading = true)
-        viewModelScope.launch {
+        job?.cancel()
+        _state.value = _state.value.copy(loading = true, error = null)
+        job = viewModelScope.launch {
             runCatching { repo.get() }
-                .onSuccess { _state.value = SourcesUiState(loading = false, sources = it) }
-                .onFailure { _state.value = SourcesUiState(loading = false, error = it.message) }
+                .onSuccess { _state.value = _state.value.copy(loading = false, sources = it) }
+                .onFailure {
+                    if (it is kotlinx.coroutines.CancellationException) return@onFailure
+                    _state.value = _state.value.copy(loading = false, error = it.message)
+                }
         }
     }
 }

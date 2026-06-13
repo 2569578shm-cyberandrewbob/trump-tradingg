@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { queryOne, query } from '../db/pool.js';
 import { redis } from '../queue/queues.js';
 import { env } from '../config/env.js';
+import { promoteAlertIfConfirmed } from '../ai/analyzer.js';
 
 /** Normalize text so trivial formatting differences hash identically. */
 export function normalizeText(text: string): string {
@@ -34,19 +35,34 @@ export type DedupeResult =
  */
 export async function checkDuplicate(text: string, sourceId: string): Promise<DedupeResult> {
   const hash = contentHash(text);
-  const cacheKey = `dedupe:${hash}`;
+  const sourcesKey = `dedupe:${hash}:sources`;
 
-  if (await redis.get(cacheKey)) return { kind: 'exact-duplicate', hash };
-
-  const exact = await queryOne<{ id: string }>(
-    `SELECT id FROM raw_statements WHERE content_hash = $1`,
-    [hash],
-  );
-  if (exact) {
-    await redis.set(cacheKey, '1', 'EX', env.DEDUPE_WINDOW_HOURS * 3600);
+  // 1. Redis check: Have we seen this exact hash from THIS source recently?
+  if (await redis.sismember(sourcesKey, sourceId)) {
     return { kind: 'exact-duplicate', hash };
   }
 
+  // 2. DB Exact Match: Have we seen this exact hash from ANY source?
+  const exact = await queryOne<{ id: string; source_id: string }>(
+    `SELECT id, source_id FROM raw_statements WHERE content_hash = $1`,
+    [hash],
+  );
+
+  if (exact) {
+    // If it's a DIFFERENT source, it's a confirmation
+    if (exact.source_id !== sourceId) {
+      await query(
+        `UPDATE raw_statements SET confirmation_count = confirmation_count + 1 WHERE id = $1`,
+        [exact.id],
+      );
+      await promoteAlertIfConfirmed(exact.id);
+    }
+    await redis.sadd(sourcesKey, sourceId);
+    await redis.expire(sourcesKey, env.DEDUPE_WINDOW_HOURS * 3600);
+    return { kind: 'exact-duplicate', hash };
+  }
+
+  // 3. DB Near Match: pg_trgm similarity against recent statements
   const near = await queryOne<{ id: string; source_id: string }>(
     `SELECT id, source_id FROM raw_statements
      WHERE detected_at > now() - ($2 || ' hours')::interval
@@ -55,17 +71,23 @@ export async function checkDuplicate(text: string, sourceId: string): Promise<De
      LIMIT 1`,
     [text, String(env.DEDUPE_WINDOW_HOURS), env.DEDUPE_SIMILARITY_THRESHOLD],
   );
+
   if (near) {
     if (near.source_id !== sourceId) {
-      // independent confirmation — strengthens the original statement
       await query(
         `UPDATE raw_statements SET confirmation_count = confirmation_count + 1 WHERE id = $1`,
         [near.id],
       );
+      await promoteAlertIfConfirmed(near.id);
     }
+    // We don't add to sourcesKey for near-duplicates because the content is slightly different,
+    // and we want to allow other slightly different near-duplicates to also be confirmed
+    // (or we could hash the original statement's hash).
     return { kind: 'near-duplicate', hash, originalId: near.id };
   }
 
-  await redis.set(cacheKey, '1', 'EX', env.DEDUPE_WINDOW_HOURS * 3600);
+  // 4. New statement
+  await redis.sadd(sourcesKey, sourceId);
+  await redis.expire(sourcesKey, env.DEDUPE_WINDOW_HOURS * 3600);
   return { kind: 'new', hash };
 }

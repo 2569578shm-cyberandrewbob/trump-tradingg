@@ -56,12 +56,14 @@ data class DashboardUiState(
 class DashboardViewModel @Inject constructor(private val repo: AlertsRepository) : ViewModel() {
     private val _state = MutableStateFlow(DashboardUiState())
     val state: StateFlow<DashboardUiState> = _state
+    private var refreshJob: kotlinx.coroutines.Job? = null
 
     init { refresh() }
 
     fun refresh(filter: String? = _state.value.activeFilter) {
+        refreshJob?.cancel()
         _state.value = _state.value.copy(loading = true, error = null, activeFilter = filter)
-        viewModelScope.launch {
+        refreshJob = viewModelScope.launch {
             runCatching {
                 val dashboard = repo.dashboard()
                 val high = repo.highImpact()
@@ -72,6 +74,7 @@ class DashboardViewModel @Inject constructor(private val repo: AlertsRepository)
                     loading = false, dashboard = dashboard, highImpact = high, recent = recent,
                 )
             }.onFailure {
+                if (it is kotlinx.coroutines.CancellationException) return@onFailure
                 _state.value = _state.value.copy(loading = false, error = it.message ?: "Failed to load")
             }
         }
