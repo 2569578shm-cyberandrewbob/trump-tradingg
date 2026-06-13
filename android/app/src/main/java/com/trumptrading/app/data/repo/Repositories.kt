@@ -8,35 +8,58 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Personal-use, single-user app: there is NO login/register UI. A hardcoded
+ * local default user (Andrew / personal mode) is provisioned silently so the
+ * token-protected backend keeps working. Everything here fails gracefully — if
+ * the backend is unreachable the app still opens and screens show empty/error
+ * states rather than blocking on a login wall.
+ */
 @Singleton
 class AuthRepository @Inject constructor(
     private val api: ApiService,
     private val session: SessionStore,
 ) {
-    val isLoggedIn = session.isLoggedIn
-
-    suspend fun login(email: String, password: String) {
-        val res = api.login(AuthRequest(email, password))
-        session.saveSession(res.userId, res.accessToken, res.refreshToken, res.displayName)
+    /** Ensure a backend session exists for the default personal user. Never throws. */
+    suspend fun ensurePersonalSession() {
+        if (!session.currentAccessToken().isNullOrBlank()) {
+            registerFcmToken()
+            return
+        }
+        // Try to log in the default user; if it doesn't exist yet, register it.
+        val loggedIn = runCatching { doLogin() }.isSuccess
+        if (!loggedIn) {
+            runCatching { doRegister() }.onFailure {
+                // Registration may fail because the user already exists (race / re-install) — retry login.
+                runCatching { doLogin() }
+            }
+        }
         registerFcmToken()
     }
 
-    suspend fun register(email: String, password: String, displayName: String) {
-        val res = api.register(AuthRequest(email, password, displayName))
-        session.saveSession(res.userId, res.accessToken, res.refreshToken, displayName)
-        registerFcmToken()
+    private suspend fun doLogin() {
+        val res = api.login(AuthRequest(DEFAULT_EMAIL, DEFAULT_PASSWORD))
+        session.saveSession(res.userId, res.accessToken, res.refreshToken, res.displayName ?: DEFAULT_NAME)
     }
 
-    suspend fun registerFcmToken() {
+    private suspend fun doRegister() {
+        val res = api.register(AuthRequest(DEFAULT_EMAIL, DEFAULT_PASSWORD, DEFAULT_NAME))
+        session.saveSession(res.userId, res.accessToken, res.refreshToken, DEFAULT_NAME)
+    }
+
+    private suspend fun registerFcmToken() {
         runCatching {
             val token = FirebaseMessaging.getInstance().token.await()
             api.registerFcmToken(FcmTokenRequest(token))
         }
     }
 
-    suspend fun logout() {
-        runCatching { api.logout() }
-        session.clear()
+    companion object {
+        // Hardcoded local default user for this personal-use app.
+        const val DEFAULT_NAME = "Andrew"
+        const val DEFAULT_MODE = "personal"
+        private const val DEFAULT_EMAIL = "andrew@personal.local"
+        private const val DEFAULT_PASSWORD = "personal-mode-Andrew"
     }
 }
 

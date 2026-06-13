@@ -9,14 +9,19 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
+import com.trumptrading.app.data.repo.AuthRepository
 import com.trumptrading.app.ui.screens.*
 import com.trumptrading.app.ui.theme.TradingColors
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 object Routes {
-    const val SPLASH = "splash"
-    const val AUTH = "auth"
     const val DASHBOARD = "dashboard"
     const val FEED = "feed"
     const val DETAIL = "alert/{alertId}"
@@ -31,8 +36,20 @@ object Routes {
 
 private data class BottomTab(val route: String, val label: String, val icon: @Composable () -> Unit)
 
+/** Silently provisions the local default user (Andrew / personal). No login UI. */
+@HiltViewModel
+class AppBootstrapViewModel @Inject constructor(private val auth: AuthRepository) : ViewModel() {
+    init {
+        viewModelScope.launch { runCatching { auth.ensurePersonalSession() } }
+    }
+}
+
 @Composable
-fun AppNavGraph(deepLinkAlertId: String?, onDeepLinkConsumed: () -> Unit) {
+fun AppNavGraph(
+    deepLinkAlertId: String?,
+    onDeepLinkConsumed: () -> Unit,
+    @Suppress("UNUSED_PARAMETER") bootstrap: AppBootstrapViewModel = hiltViewModel(),
+) {
     val nav = rememberNavController()
 
     LaunchedEffect(deepLinkAlertId) {
@@ -78,11 +95,9 @@ fun AppNavGraph(deepLinkAlertId: String?, onDeepLinkConsumed: () -> Unit) {
     ) { padding ->
         NavHost(
             navController = nav,
-            startDestination = Routes.SPLASH,
+            startDestination = Routes.DASHBOARD,
             modifier = Modifier.padding(padding),
         ) {
-            composable(Routes.SPLASH) { SplashScreen(nav) }
-            composable(Routes.AUTH) { AuthScreen(nav) }
             composable(Routes.DASHBOARD) { DashboardScreen(nav) }
             composable(Routes.FEED) { AlertsFeedScreen(nav) }
             composable(Routes.DETAIL) { entry ->
@@ -96,6 +111,3 @@ fun AppNavGraph(deepLinkAlertId: String?, onDeepLinkConsumed: () -> Unit) {
         }
     }
 }
-
-fun NavHostController.toAuth() = navigate(Routes.AUTH) { popUpTo(0) }
-fun NavHostController.toDashboard() = navigate(Routes.DASHBOARD) { popUpTo(0) }
