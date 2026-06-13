@@ -86,3 +86,17 @@ data class Source(
 @Serializable data class SourcesResponse(val sources: List<Source>)
 @Serializable data class LegalResponse(val disclaimer: String, val privacyPolicy: String)
 @Serializable data class OkResponse(val ok: Boolean = true)
+
+@Serializable
+data class HealthChecks(
+    val db: String = "unknown",
+    val redis: String = "unknown",
+)
+
+@Serializable
+data class HealthResponse(
+    val status: String = "unknown",
+    val checks: HealthChecks = HealthChecks(),
+    val service: String = "trump-trading-backend",
+    val time: String = "",
+)

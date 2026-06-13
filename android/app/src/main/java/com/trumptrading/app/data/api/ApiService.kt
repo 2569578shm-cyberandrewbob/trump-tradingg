@@ -62,4 +62,7 @@ interface ApiService {
 
     @GET("legal/disclaimer")
     suspend fun getLegal(): LegalResponse
+
+    @GET("health")
+    suspend fun getHealth(): HealthResponse
 }

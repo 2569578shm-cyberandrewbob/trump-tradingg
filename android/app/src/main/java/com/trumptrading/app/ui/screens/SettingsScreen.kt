@@ -30,6 +30,9 @@ fun SettingsScreen(nav: NavHostController) {
         SectionHeader("Legal")
         SettingsRow("Disclaimer & terms") { nav.navigate(Routes.DISCLAIMER) }
 
+        SectionHeader("Developer")
+        SettingsRow("Diagnostics / connection test") { nav.navigate(Routes.DIAGNOSTICS) }
+
         // Personal-use app: single local user, no login/logout.
         SectionHeader("Profile")
         Card(colors = CardDefaults.cardColors(containerColor = TradingColors.Surface)) {

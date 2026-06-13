@@ -35,6 +35,7 @@ object Routes {
     const val NOTIF_PREFS = "notification_prefs"
     const val SOURCES = "sources"
     const val DISCLAIMER = "disclaimer"
+    const val DIAGNOSTICS = "diagnostics"
 
     fun detail(alertId: String) = "alert/$alertId"
 }
@@ -127,6 +128,7 @@ fun AppNavGraph(
             composable(Routes.NOTIF_PREFS) { NotificationPrefsScreen(nav) }
             composable(Routes.SOURCES) { SourcesScreen(nav) }
             composable(Routes.DISCLAIMER) { DisclaimerScreen(nav) }
+            composable(Routes.DIAGNOSTICS) { DiagnosticsScreen(nav) }
         }
     }
 }

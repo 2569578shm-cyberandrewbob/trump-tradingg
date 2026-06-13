@@ -13,6 +13,12 @@ android {
     namespace = "com.trumptrading.app"
     compileSdk = 35
 
+    // Read backend URL from gradle.properties (or local.properties for local overrides).
+    // Change TRUMP_TRADING_API_URL in gradle.properties to your deployed backend.
+    val apiBaseUrl: String = (findProperty("TRUMP_TRADING_API_URL") as String?)
+        ?.takeIf { it.isNotBlank() }
+        ?: "https://trump-trading-api.onrender.com/"
+
     defaultConfig {
         applicationId = "com.trumptrading.app"
         minSdk = 26
@@ -20,15 +26,19 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // API base URL per build type; override in release CI with your production host.
-        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8080/\"")
+        // Both debug and release point to the same public HTTPS backend.
+        // Change TRUMP_TRADING_API_URL in gradle.properties after deployment.
+        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            buildConfigField("String", "API_BASE_URL", "\"https://api.your-domain.com/\"")
+            // Inherits API_BASE_URL from defaultConfig (same public HTTPS URL).
+        }
+        debug {
+            applicationIdSuffix = ".debug"
         }
     }
     compileOptions {

@@ -1,0 +1,131 @@
+databases:
+  - name: trump-trading-db
+    databaseName: trump_trading
+    plan: free
+    region: frankfurt
+
+services:
+  # ── Web API (Fastify) ──────────────────────────────────────────────────
+  - type: web
+    name: trump-trading-api
+    region: frankfurt
+    plan: free
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8080
+      - key: DATABASE_URL
+        fromDatabase:
+          name: trump-trading-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: trump-trading-redis
+          type: redis
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_TTL
+        value: 15m
+      - key: JWT_REFRESH_TTL
+        value: 30d
+      - key: LOG_LEVEL
+        value: info
+      - key: INGEST_POLL_SECONDS_DEFAULT
+        value: 120
+      - key: DEDUPE_WINDOW_HOURS
+        value: 6
+      - key: DEDUPE_SIMILARITY_THRESHOLD
+        value: "0.85"
+      - key: MIN_RELIABILITY_FOR_CRITICAL
+        value: "70"
+      # Optional — add your own keys in the Render dashboard:
+      # - key: NEWS_API_KEY
+      #   value: your_key_here
+      # - key: ANTHROPIC_API_KEY
+      #   value: sk-ant-...
+
+  # ── Ingestion worker ────────────────────────────────────────────────────
+  - type: worker
+    name: trump-trading-ingest
+    region: frankfurt
+    plan: free
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/ingestion/worker.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: trump-trading-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: trump-trading-redis
+          type: redis
+          property: connectionString
+
+  # ── AI analysis worker ──────────────────────────────────────────────────
+  - type: worker
+    name: trump-trading-analyze
+    region: frankfurt
+    plan: free
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/ai/worker.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: trump-trading-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: trump-trading-redis
+          type: redis
+          property: connectionString
+      - key: ANTHROPIC_API_KEY
+        value: ""   # set in Render dashboard
+
+  # ── Notification worker ─────────────────────────────────────────────────
+  - type: worker
+    name: trump-trading-notify
+    region: frankfurt
+    plan: free
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: node dist/notifications/worker.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: trump-trading-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: trump-trading-redis
+          type: redis
+          property: connectionString
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        value: ""   # paste your firebase service account JSON here
+
+  # ── Redis ───────────────────────────────────────────────────────────────
+  - type: redis
+    name: trump-trading-redis
+    region: frankfurt
+    plan: free
+    maxmemoryPolicy: allkeys-lru
