@@ -1,6 +1,17 @@
 package com.trumptrading.app.ui.screens
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -15,6 +26,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
+import com.trumptrading.app.data.api.toApiError
 import com.trumptrading.app.data.repo.WatchlistRepository
 import com.trumptrading.app.ui.components.CategoryChip
 import com.trumptrading.app.ui.components.ErrorBox
@@ -49,7 +61,7 @@ class WatchlistViewModel @Inject constructor(private val repo: WatchlistReposito
         viewModelScope.launch {
             runCatching { repo.get() }
                 .onSuccess { _state.value = WatchlistUiState(loading = false, tickers = it) }
-                .onFailure { _state.value = WatchlistUiState(loading = false, error = it.message) }
+                .onFailure { _state.value = _state.value.copy(loading = false, error = it.toApiError()) }
         }
     }
 
@@ -58,7 +70,7 @@ class WatchlistViewModel @Inject constructor(private val repo: WatchlistReposito
         viewModelScope.launch {
             runCatching { repo.add(ticker) }
                 .onSuccess { _state.value = _state.value.copy(tickers = it, error = null) }
-                .onFailure { _state.value = _state.value.copy(error = it.message) }
+                .onFailure { _state.value = _state.value.copy(error = it.toApiError()) }
         }
     }
 
@@ -66,7 +78,7 @@ class WatchlistViewModel @Inject constructor(private val repo: WatchlistReposito
         viewModelScope.launch {
             runCatching { repo.remove(ticker) }
                 .onSuccess { _state.value = _state.value.copy(tickers = it, error = null) }
-                .onFailure { _state.value = _state.value.copy(error = it.message) }
+                .onFailure { _state.value = _state.value.copy(error = it.toApiError()) }
         }
     }
 }
@@ -128,14 +140,14 @@ fun WatchlistScreen(nav: NavHostController, vm: WatchlistViewModel = hiltViewMod
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FlowRowChips(tickers: List<String>, onClick: (String) -> Unit) {
-    // simple wrapping rows of 5
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        tickers.chunked(5).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                row.forEach { t -> CategoryChip(t, onClick = { onClick(t) }) }
-            }
-        }
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        tickers.forEach { t -> CategoryChip(t, onClick = { onClick(t) }) }
     }
 }

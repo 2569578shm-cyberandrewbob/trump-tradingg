@@ -14,6 +14,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
+import com.trumptrading.app.data.api.toApiError
 import com.trumptrading.app.data.model.Alert
 import com.trumptrading.app.data.repo.AlertsRepository
 import com.trumptrading.app.ui.components.AlertCard
@@ -57,7 +58,7 @@ class FeedViewModel @Inject constructor(private val repo: AlertsRepository) : Vi
                 }
                 .onFailure {
                     if (it is kotlinx.coroutines.CancellationException) return@onFailure
-                    _state.value = _state.value.copy(loading = false, error = it.message, riskFilter = risk)
+                    _state.value = _state.value.copy(loading = false, error = it.toApiError(), riskFilter = risk)
                 }
         }
     }
@@ -80,7 +81,7 @@ class FeedViewModel @Inject constructor(private val repo: AlertsRepository) : Vi
                 }
                 .onFailure {
                     if (it is kotlinx.coroutines.CancellationException) return@onFailure
-                    _state.value = _state.value.copy(loading = false, error = it.message)
+                    _state.value = _state.value.copy(loading = false, error = it.toApiError())
                 }
         }
     }

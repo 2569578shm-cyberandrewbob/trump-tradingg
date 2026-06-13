@@ -18,6 +18,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
+import com.trumptrading.app.data.api.toApiError
 import com.trumptrading.app.data.model.AlertDetailResponse
 import com.trumptrading.app.data.model.RiskLevel
 import com.trumptrading.app.data.repo.AlertsRepository
@@ -52,7 +53,7 @@ class AlertDetailViewModel @Inject constructor(
                 .onSuccess { (detail, watch) ->
                     _state.value = DetailUiState(loading = false, detail = detail, savedTickers = watch.toSet())
                 }
-                .onFailure { _state.value = DetailUiState(loading = false, error = it.message) }
+                .onFailure { _state.value = DetailUiState(loading = false, error = it.toApiError()) }
         }
     }
 

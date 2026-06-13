@@ -41,6 +41,9 @@ export async function buildApp() {
     return reply.code(500).send({ error: 'INTERNAL_ERROR', message: 'Something went wrong' });
   });
 
+  // Base routes (each module owns its own paths — register exactly once).
+  // alertRoutes already declares /feed, /alerts, /alerts/dashboard,
+  // /market-impact and /assets/affected, so there is no separate market module.
   await app.register(authRoutes);
   await app.register(alertRoutes);
   await app.register(watchlistRoutes);
@@ -48,6 +51,41 @@ export async function buildApp() {
   await app.register(sourceRoutes);
   await app.register(adminRoutes);
   await app.register(healthRoutes);
+
+  // /api/ prefixed versions for backward/forward compatibility.
+  await app.register(authRoutes, { prefix: '/api' });
+  await app.register(alertRoutes, { prefix: '/api' });
+  await app.register(watchlistRoutes, { prefix: '/api' });
+  await app.register(prefsRoutes, { prefix: '/api' });
+  await app.register(sourceRoutes, { prefix: '/api' });
+  await app.register(adminRoutes, { prefix: '/api' });
+  await app.register(healthRoutes, { prefix: '/api' });
+
+  // Convenience aliases (paths NOT already declared by a module).
+  app.get('/dashboard', (_req, reply) => reply.redirect('/alerts/dashboard'));
+  app.get('/api/dashboard', (_req, reply) => reply.redirect('/api/alerts/dashboard'));
+  app.get('/sources/status', (_req, reply) => reply.redirect('/sources'));
+  app.get('/api/sources/status', (_req, reply) => reply.redirect('/api/sources'));
+
+  const AVAILABLE_ENDPOINTS = [
+    '/health', '/dashboard', '/feed', '/alerts', '/alerts/dashboard', '/alerts/high-impact',
+    '/sources', '/sources/status', '/market-impact', '/assets/affected',
+    '/watchlist', '/notification-preferences', '/legal/disclaimer',
+    '/api/health', '/api/dashboard', '/api/feed', '/api/alerts', '/api/sources', '/api/sources/status',
+    '/api/market-impact', '/api/assets/affected',
+  ];
+
+  // Route index.
+  app.get('/', async () => ({ ok: true, service: 'trump-trading-api', available_endpoints: AVAILABLE_ENDPOINTS }));
+  app.get('/api', async () => ({ ok: true, service: 'trump-trading-api', available_endpoints: AVAILABLE_ENDPOINTS }));
+
+  // JSON 404 (instead of plain "Not Found") so the app can show a useful error.
+  app.setNotFoundHandler((req, reply) => {
+    reply.code(404).send({
+      ok: false, error: 'Route not found', path: req.url, method: req.method,
+      available_endpoints: AVAILABLE_ENDPOINTS,
+    });
+  });
 
   // Legal: served in-app on the Disclaimer screen as well.
   app.get('/legal/disclaimer', async () => ({

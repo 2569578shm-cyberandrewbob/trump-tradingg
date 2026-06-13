@@ -12,7 +12,7 @@ class AuthInterceptor @Inject constructor(private val session: SessionStore) : I
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val path = request.url.encodedPath
-        if (path.startsWith("/auth/login") || path.startsWith("/auth/register") || path.startsWith("/auth/refresh")) {
+        if (path.contains("/auth/login") || path.contains("/auth/register") || path.contains("/auth/refresh")) {
             return chain.proceed(request)
         }
         val token = runBlocking { session.currentAccessToken() }

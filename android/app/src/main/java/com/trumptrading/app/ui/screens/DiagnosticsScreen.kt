@@ -22,6 +22,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
 import com.trumptrading.app.BuildConfig
 import com.trumptrading.app.data.api.ApiService
+import com.trumptrading.app.data.api.toApiError
 import com.trumptrading.app.data.model.HealthResponse
 import com.trumptrading.app.ui.theme.TradingColors
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -42,6 +43,9 @@ class DiagnosticsViewModel @Inject constructor(private val api: ApiService) : Vi
         val error: String? = null,
         val checkedAt: String? = null,
         val alertCount: Int? = null,
+        val feedOk: Boolean = false,
+        val marketOk: Boolean = false,
+        val sourcesOk: Boolean = false,
     )
 
     private val _state = MutableStateFlow(State())
@@ -55,16 +59,23 @@ class DiagnosticsViewModel @Inject constructor(private val api: ApiService) : Vi
             try {
                 val h = api.getHealth()
                 val alertCount = runCatching { api.getAlerts(limit = 1).alerts.size }.getOrNull()
+                val feedOk = runCatching { api.getAlerts(limit = 1) }.isSuccess
+                val marketOk = runCatching { api.getAffectedMarkets() }.isSuccess
+                val sourcesOk = runCatching { api.getSources() }.isSuccess
+
                 _state.value = State(
                     loading = false,
                     health = h,
                     alertCount = alertCount,
+                    feedOk = feedOk,
+                    marketOk = marketOk,
+                    sourcesOk = sourcesOk,
                     checkedAt = now(),
                 )
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     loading = false,
-                    error = e.message ?: e::class.simpleName ?: "Unknown error",
+                    error = e.toApiError(),
                     checkedAt = now(),
                 )
             }
@@ -130,7 +141,7 @@ fun DiagnosticsScreen(nav: NavHostController, vm: DiagnosticsViewModel = hiltVie
             }
 
             // ── Health check result ────────────────────────────────────────
-            DiagCard(title = "Backend Health") {
+            DiagCard(title = "Backend Health Status") {
                 if (state.loading) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = TradingColors.Accent)
@@ -148,12 +159,10 @@ fun DiagnosticsScreen(nav: NavHostController, vm: DiagnosticsViewModel = hiltVie
                 } else if (state.health != null) {
                     val h = state.health!!
                     val ok = h.status == "ok"
-                    StatusRow("Backend reachable", true)
-                    StatusRow("Status: ${h.status}", ok)
-                    StatusRow("Database", h.checks.db == "ok")
-                    StatusRow("Redis", h.checks.redis == "ok")
-                    Spacer(Modifier.height(4.dp))
-                    Text("Server time: ${h.time}", style = MaterialTheme.typography.bodySmall, color = TradingColors.TextSecondary)
+                    StatusRow("Connectivity (GET /health)", true)
+                    StatusRow("Backend Service: ${h.service}", ok)
+                    StatusRow("Database connection", h.checks.db == "ok")
+                    StatusRow("Redis connection", h.checks.redis == "ok")
                 }
                 if (state.checkedAt != null) {
                     Spacer(Modifier.height(4.dp))
@@ -161,19 +170,28 @@ fun DiagnosticsScreen(nav: NavHostController, vm: DiagnosticsViewModel = hiltVie
                 }
             }
 
-            // ── Feed data ──────────────────────────────────────────────────
-            DiagCard(title = "Live Feed") {
+            // ── Endpoint tests ─────────────────────────────────────────────
+            DiagCard(title = "Endpoint Availability") {
+                if (state.loading) {
+                    Text("Testing endpoints…", style = MaterialTheme.typography.bodySmall, color = TradingColors.TextSecondary)
+                } else {
+                    StatusRow("GET /alerts (Live Alerts)", state.feedOk)
+                    StatusRow("GET /alerts/dashboard (Dashboard)", state.health != null)
+                    StatusRow("GET /assets/affected (Affected Markets)", state.marketOk)
+                    StatusRow("GET /sources (Sources Status)", state.sourcesOk)
+                }
+            }
+
+            // ── Content Statistics ─────────────────────────────────────────
+            DiagCard(title = "Content Statistics") {
                 if (state.loading) {
                     Text("Checking…", style = MaterialTheme.typography.bodySmall, color = TradingColors.TextSecondary)
                 } else if (state.alertCount != null) {
-                    StatusRow("Alerts endpoint reachable", true)
                     Text(
                         if (state.alertCount!! > 0) "✓ Feed has items" else "⚠ Feed returned 0 items — backend may need ingestion to run",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (state.alertCount!! > 0) TradingColors.Low else TradingColors.Medium,
                     )
-                } else if (state.error != null) {
-                    StatusRow("Alerts endpoint reachable", false)
                 }
             }
 

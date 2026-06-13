@@ -4,6 +4,7 @@ import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFact
 import com.trumptrading.app.BuildConfig
 import com.trumptrading.app.data.api.ApiService
 import com.trumptrading.app.data.api.AuthInterceptor
+import com.trumptrading.app.data.api.TokenAuthenticator
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -29,9 +30,13 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideOkHttp(authInterceptor: AuthInterceptor): OkHttpClient =
+    fun provideOkHttp(
+        authInterceptor: AuthInterceptor,
+        authenticator: TokenAuthenticator
+    ): OkHttpClient =
         OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
+            .authenticator(authenticator)
             .addInterceptor(HttpLoggingInterceptor().apply {
                 level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC
                         else HttpLoggingInterceptor.Level.NONE

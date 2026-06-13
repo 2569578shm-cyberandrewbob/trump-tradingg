@@ -14,17 +14,21 @@ android {
     compileSdk = 35
 
     // Read backend URL from gradle.properties (or local.properties for local overrides).
-    // Change TRUMP_TRADING_API_URL in gradle.properties to your deployed backend.
-    val apiBaseUrl: String = (findProperty("TRUMP_TRADING_API_URL") as String?)
+    // SINGLE SOURCE OF TRUTH for the backend root. Must be the root domain only
+    // (no /alerts, /feed, /api path). A trailing slash is enforced below so
+    // Retrofit appends relative endpoints like "alerts/dashboard" correctly.
+    val rawApiUrl: String = (findProperty("TRUMP_TRADING_API_URL") as String?)
+        ?.trim()
         ?.takeIf { it.isNotBlank() }
         ?: "https://trump-trading-api.onrender.com/"
+    val apiBaseUrl: String = if (rawApiUrl.endsWith("/")) rawApiUrl else "$rawApiUrl/"
 
     defaultConfig {
         applicationId = "com.trumptrading.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Both debug and release point to the same public HTTPS backend.
         // Change TRUMP_TRADING_API_URL in gradle.properties after deployment.

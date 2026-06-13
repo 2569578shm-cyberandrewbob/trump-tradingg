@@ -1,6 +1,7 @@
 // Export the last-24h real ingested feed to a static HTML page for local preview.
 import { Pool } from 'pg';
 import { writeFileSync } from 'node:fs';
+import { analyzeMarketImpact } from '../dist/market/marketImpact.js';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -20,8 +21,18 @@ const rows = (await pool.query(`
   LIMIT 400
 `)).rows;
 
+// Attach deterministic market-impact analysis to each row.
+const enriched = rows.map((r) => {
+  const text = [r.title, r.summary, r.content].filter(Boolean).join(' . ');
+  const mi = analyzeMarketImpact({
+    text, categories: r.categories ?? [], urgency: Number(r.urgency ?? 0),
+    confirmationCount: Number(r.confirmations ?? 0), sourceReliability: Number(r.reliability ?? 50),
+  });
+  return { ...r, mi };
+});
+
 const generatedAt = new Date().toISOString();
-const data = JSON.stringify(rows);
+const data = JSON.stringify(enriched);
 
 const html = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -55,6 +66,12 @@ h1{font-size:18px}.sub{font-size:12px;color:var(--text2);margin-top:3px}
 .cat{font-size:10px;background:rgba(61,139,253,.12);border:1px solid rgba(61,139,253,.3);color:var(--accent);padding:2px 7px;border-radius:4px}
 .time{font-size:11px;color:var(--text2)}.empty{text-align:center;padding:40px;color:var(--text2)}
 a.link{color:var(--accent);font-size:11px;text-decoration:none}
+.mi{margin-top:9px;background:var(--surface2);border-radius:8px;padding:9px 11px;cursor:pointer}
+.mi-head{font-size:10px;font-weight:800;letter-spacing:.5px;color:var(--accent);display:flex;justify-content:space-between}
+.mi-line{font-size:12px;margin-top:4px}
+.pos{color:var(--low)}.neg{color:var(--critical)}.mix{color:var(--high)}.unc{color:var(--text2)}
+.mi-note{font-size:10px;color:var(--text2);margin-top:6px}
+.disc{max-width:880px;margin:18px auto;padding:0 18px;font-size:11px;color:var(--text2);text-align:center}
 </style></head><body>
 <header><h1>🇺🇸 Trump Trading — Backend 24-Hour Check</h1>
 <div class="sub">Real data ingested by the backend (processed_alerts joined with raw_statements). Snapshot, not live.</div></header>
@@ -75,13 +92,28 @@ function setF(r){filter=r;render()}
 function render(){stats();filters();let list=filter==='all'?DATA:DATA.filter(x=>x.risk===filter);const f=document.getElementById('feed');
 if(!list.length){f.innerHTML='<div class="empty">No items in this filter.</div>';return}
 const col={Critical:'#E53935',High:'#FB8C00',Medium:'#FDD835',Low:'#66BB6A'};
-f.innerHTML=list.map(x=>{const off=x.kind==='direct_official';const conf=x.confirmed||x.confirmations>0;
+const dcls={positive:'pos',negative:'neg',mixed:'mix',uncertain:'unc'};
+function miHtml(mi,id){if(!mi||(!mi.affected_assets.length&&!mi.affected_etfs.length&&!mi.affected_commodities.length&&!mi.affected_macro_assets.length))return'';
+const bySector={};mi.affected_assets.forEach(a=>{(bySector[a.sector]=bySector[a.sector]||[]).push(a)});
+const secs=Object.entries(bySector);
+const lines=secs.slice(0,3).map(([s,as])=>{const d=as[0].possible_impact;return '<div class="mi-line '+dcls[d]+'">'+esc(s)+': '+as.slice(0,3).map(a=>a.symbol).join(', ')+' — possible '+d+' impact</div>'}).join('');
+const more=[];
+if(mi.affected_etfs.length)more.push('<div class="mi-line '+dcls[mi.affected_etfs[0].possible_impact]+'">ETFs: '+mi.affected_etfs.map(e=>e.symbol).join(', ')+' — possible '+mi.affected_etfs[0].possible_impact+' impact</div>');
+if(mi.affected_commodities.length)more.push('<div class="mi-line '+dcls[mi.affected_commodities[0].possible_impact]+'">Commodities: '+mi.affected_commodities.map(e=>e.symbol).join(', ')+'</div>');
+if(mi.affected_macro_assets.length)more.push('<div class="mi-line '+dcls[mi.affected_macro_assets[0].possible_impact]+'">Macro: '+mi.affected_macro_assets.map(e=>e.asset).join(', ')+'</div>');
+const moreSecs=secs.slice(3).map(([s,as])=>{const d=as[0].possible_impact;return '<div class="mi-line '+dcls[d]+'">'+esc(s)+': '+as.slice(0,4).map(a=>a.symbol).join(', ')+' — possible '+d+' impact</div>'}).join('');
+return '<div class="mi" onclick="this.classList.toggle(\\'open\\');const e=this.querySelector(\\'.mi-extra\\');e.style.display=e.style.display===\\'block\\'?\\'none\\':\\'block\\'">'+
+'<div class="mi-head"><span>⚡ POSSIBLE MARKET IMPACT</span><span style="color:var(--text2)">tap to expand</span></div>'+
+lines+(secs.length>3?'<div class="mi-note">+'+(secs.length-3)+' more sectors…</div>':'')+
+'<div class="mi-extra" style="display:none">'+moreSecs+more.join('')+'<div class="mi-note">'+esc(mi.market_impact_summary)+'</div></div></div>'}
+f.innerHTML=list.map((x,i)=>{const off=x.kind==='direct_official';const conf=x.confirmed||x.confirmations>0;
 return '<div class="card"><div class="acc" style="background:'+col[x.risk]+'"></div><div class="body">'+
 '<div class="top"><div class="title">'+esc(x.title||x.content.slice(0,90))+'</div><div class="pill '+x.risk+'">'+x.risk+'</div></div>'+
 '<div class="src"><span class="dot"></span>'+esc(x.source)+(off?' · <span class="official">OFFICIAL</span>':'')+' · <span class="'+(conf?'confirmed':'unconfirmed')+'">'+(conf?'✓ confirmed ('+(x.confirmations+1)+' src)':'○ unconfirmed')+'</span> · urgency '+x.urgency+' · rel '+x.reliability+'</div>'+
 '<div class="summary">'+esc(x.content.slice(0,220))+'</div>'+
 '<div class="foot"><div class="cats">'+(x.categories||[]).map(c=>'<span class="cat">'+esc(c)+'</span>').join('')+'</div>'+
 '<div class="time" title="'+cairo(x.statedAt)+'">🕐 '+rel(x.statedAt)+' · Cairo'+(x.url?' · <a class="link" href="'+x.url+'" target="_blank">open ↗</a>':'')+'</div></div>'+
+miHtml(x.mi,i)+
 '</div></div>'}).join('')}
 render();
 </script></body></html>`;
