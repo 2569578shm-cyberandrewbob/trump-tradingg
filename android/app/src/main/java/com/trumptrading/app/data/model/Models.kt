@@ -26,10 +26,17 @@ data class Alert(
     val statedAt: String = "",
     val detectedAt: String = "",
     val sourceName: String = "",
+    val sourceGroup: String = "general",
+    val sourceKind: String = "news_fallback",
+    val confirmationCount: Int = 0,
     val sourceReliability: Int = 50,
     val tickers: List<String> = emptyList(),
 ) {
     val risk: RiskLevel get() = RiskLevel.from(riskLevel)
+    val primaryCategory: String get() = categories.firstOrNull() ?: "General"
+    val isOfficial: Boolean get() = sourceKind == "direct_official"
+    /** A statement is "confirmed" when flagged confirmed OR corroborated by another source. */
+    val isConfirmed: Boolean get() = confirmed || confirmationCount > 0
 }
 
 @Serializable data class AlertsResponse(val alerts: List<Alert>)
@@ -82,7 +89,24 @@ data class Source(
     val enabled: Boolean = true,
     val reliabilityScore: Int = 50,
     val totalStatements: Int = 0,
-)
+    val group: String = "general",
+    val kind: String = "news_fallback",
+    val status: String = "pending",
+    val lastError: String? = null,
+    val lastItemCount: Int = 0,
+    val lastSuccessAt: String? = null,
+) {
+    val isOfficial: Boolean get() = kind == "direct_official"
+    val groupLabel: String get() = when (group) {
+        "official" -> "Official Government"
+        "market" -> "Market & Financial News"
+        "general" -> "General News"
+        "geopolitical" -> "International / Geopolitical"
+        "truth_social_direct" -> "Truth Social (Direct)"
+        "truth_social_news" -> "Truth Social via News"
+        else -> "Other"
+    }
+}
 @Serializable data class SourcesResponse(val sources: List<Source>)
 @Serializable data class LegalResponse(val disclaimer: String, val privacyPolicy: String)
 @Serializable data class OkResponse(val ok: Boolean = true)

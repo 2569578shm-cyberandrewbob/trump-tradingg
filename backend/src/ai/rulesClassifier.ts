@@ -36,6 +36,10 @@ const RULES: Rule[] = [
   { pattern: /\bdefense|pentagon\b/i, categories: ['Defense sector'], sectors: ['Defense'], tickers: ['LMT', 'RTX'], weight: 20 },
   { pattern: /\bsemiconductor(s)?|chip(s)?\b/i, categories: ['Technology sector'], sectors: ['Semiconductors'], tickers: ['NVDA', 'TSM', 'AMD'], weight: 25 },
   { pattern: /\bpharma(ceutical)?(s)?|drug price(s)?\b/i, categories: ['Pharmaceuticals'], sectors: ['Healthcare'], tickers: ['PFE', 'MRK'], weight: 20 },
+  { pattern: /\bdollar|greenback|\busd\b|currency\b/i, categories: ['Federal Reserve'], sectors: ['Banking'], tickers: ['DXY'], weight: 18 },
+  { pattern: /\bstock(s)?|equit(y|ies)|s&p|nasdaq|dow jones|wall street\b/i, categories: ['General financial'], sectors: ['Banking'], tickers: ['SPY', 'QQQ'], weight: 15 },
+  { pattern: /\bartificial intelligence|\ba\.?i\.?\b|chatgpt|data center\b/i, categories: ['Technology sector'], sectors: ['Technology', 'Semiconductors'], tickers: ['NVDA', 'MSFT'], weight: 18 },
+  { pattern: /\bbank(s|ing)?|wells fargo|goldman|citigroup\b/i, categories: ['Banking sector'], sectors: ['Banking'], tickers: ['JPM', 'BAC'], weight: 15 },
 ];
 
 const COMPANY_TICKERS: Record<string, string> = {
@@ -75,6 +79,8 @@ export function classifyWithRules(statement: string): AiAnalysis {
   }
 
   if (ESCALATORS.test(statement)) urgency += 20;
+  // A market-relevant Truth Social statement is especially market-moving.
+  if (/truth social/i.test(statement) && categories.size > 0) urgency += 12;
   urgency = Math.min(urgency, 100);
 
   const isMarketRelevant = categories.size > 0 && urgency >= 20;

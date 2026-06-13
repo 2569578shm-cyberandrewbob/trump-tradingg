@@ -18,7 +18,9 @@ const ALERT_SELECT = `
          a.reasoning, a.notification_title AS "title", a.confirmed, a.created_at AS "createdAt",
          rs.content AS "originalStatement", rs.source_url AS "sourceUrl",
          rs.stated_at AS "statedAt", rs.detected_at AS "detectedAt",
-         s.name AS "sourceName", COALESCE(sr.reliability_score, 50) AS "sourceReliability",
+         COALESCE(rs.confirmation_count, 0) AS "confirmationCount",
+         s.name AS "sourceName", s.source_group AS "sourceGroup", s.source_kind AS "sourceKind",
+         COALESCE(sr.reliability_score, 50) AS "sourceReliability",
          COALESCE(array_agg(at.ticker) FILTER (WHERE at.ticker IS NOT NULL), '{}') AS tickers
   FROM processed_alerts a
   JOIN raw_statements rs ON rs.id = a.raw_statement_id
@@ -27,10 +29,29 @@ const ALERT_SELECT = `
   LEFT JOIN alert_tickers at ON at.alert_id = a.id
   WHERE a.is_market_relevant = TRUE`;
 
-const ALERT_GROUP = ` GROUP BY a.id, rs.id, s.name, sr.reliability_score`;
+const ALERT_GROUP = ` GROUP BY a.id, rs.id, s.name, s.source_group, s.source_kind, sr.reliability_score`;
 
 export async function alertRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('preHandler', requireAuth);
+
+  /**
+   * Full feed: every market-relevant item, newest first, from all sources.
+   * Includes category, urgency, confirmation count and source group/kind.
+   */
+  app.get('/feed', async (req) => {
+    const q = listQuery.parse(req.query);
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    if (q.category) { params.push(q.category); conditions.push(`$${params.length} = ANY(a.categories)`); }
+    if (q.risk) { params.push(q.risk); conditions.push(`a.risk_level = $${params.length}`); }
+    params.push(q.limit, q.offset);
+    const rows = await query(
+      `${ALERT_SELECT} ${conditions.map((c) => ` AND ${c}`).join('')} ${ALERT_GROUP}
+       ORDER BY rs.stated_at DESC NULLS LAST, a.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params,
+    );
+    return { items: rows, alerts: rows };
+  });
 
   app.get('/alerts', async (req) => {
     const q = listQuery.parse(req.query);
@@ -45,11 +66,19 @@ export async function alertRoutes(app: FastifyInstance): Promise<void> {
       conditions.push(`a.risk_level = $${params.length}`);
     }
     params.push(q.limit, q.offset);
-    const rows = await query(
-      `${ALERT_SELECT} ${conditions.map((c) => ` AND ${c}`).join('')} ${ALERT_GROUP}
-       ORDER BY a.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    const where = conditions.map((c) => ` AND ${c}`).join('');
+    const order = `ORDER BY rs.stated_at DESC NULLS LAST, a.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`;
+
+    // Live Alerts = urgent only (Medium/High/Critical). Fall back to the full
+    // market-relevant feed when no urgent items exist yet, so the screen is
+    // never blank in a fresh/sparse database.
+    let rows = await query(
+      `${ALERT_SELECT}${where} AND a.risk_level IN ('Medium','High','Critical') ${ALERT_GROUP} ${order}`,
       params,
     );
+    if (!rows.length && !q.risk) {
+      rows = await query(`${ALERT_SELECT}${where} ${ALERT_GROUP} ${order}`, params);
+    }
     return { alerts: rows };
   });
 

@@ -75,35 +75,90 @@ fun SourcesScreen(nav: NavHostController, vm: SourcesViewModel = hiltViewModel()
         }
         state.error?.let { ErrorBox(it) { vm.load() } }
 
+        // Summary: connected / failed counts
+        if (state.sources.isNotEmpty()) {
+            val connected = state.sources.count { it.status == "connected" }
+            val failed = state.sources.count { it.status == "failed" }
+            Text(
+                "$connected connected · $failed failed · ${state.sources.size} total",
+                style = MaterialTheme.typography.labelMedium, color = TradingColors.TextSecondary,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+
+        // Preserve the requested group order.
+        val order = listOf("official", "market", "general", "geopolitical", "truth_social_direct", "truth_social_news")
+        val grouped = state.sources.groupBy { it.group }
+        val orderedGroups = (order + grouped.keys.filter { it !in order }).filter { grouped.containsKey(it) }
+
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(state.sources, key = { it.id }) { source ->
-                Card(colors = CardDefaults.cardColors(containerColor = TradingColors.Surface)) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(source.name, style = MaterialTheme.typography.titleMedium)
-                            Spacer(Modifier.weight(1f))
-                            if (!source.enabled) {
-                                Text("DISABLED", style = MaterialTheme.typography.labelSmall, color = TradingColors.TextSecondary)
-                            }
-                        }
-                        val color = when {
-                            source.reliabilityScore >= 80 -> TradingColors.Low
-                            source.reliabilityScore >= 60 -> TradingColors.Medium
-                            else -> TradingColors.High
-                        }
-                        Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(TradingColors.SurfaceHigh)) {
-                            Box(
-                                Modifier.fillMaxWidth(source.reliabilityScore / 100f)
-                                    .height(6.dp).clip(RoundedCornerShape(3.dp)).background(color),
-                            )
-                        }
-                        Text(
-                            "Reliability ${source.reliabilityScore}/100 · ${source.totalStatements} statements · ${source.type}",
-                            style = MaterialTheme.typography.labelSmall, color = TradingColors.TextSecondary,
-                        )
-                    }
+            orderedGroups.forEach { group ->
+                val list = grouped[group].orEmpty()
+                item(key = "header_$group") {
+                    Text(
+                        list.firstOrNull()?.groupLabel ?: group,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = TradingColors.Accent,
+                        modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
+                    )
                 }
+                items(list, key = { it.id }) { source -> SourceCard(source) }
             }
         }
+    }
+}
+
+@Composable
+private fun SourceCard(source: Source) {
+    Card(colors = CardDefaults.cardColors(containerColor = TradingColors.Surface)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(source.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                StatusChip(source.status)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                val kindColor = if (source.isOfficial) TradingColors.Low else TradingColors.TextSecondary
+                Text(
+                    if (source.isOfficial) "OFFICIAL" else "NEWS",
+                    style = MaterialTheme.typography.labelSmall, color = kindColor,
+                )
+                Text("·", color = TradingColors.TextSecondary, style = MaterialTheme.typography.labelSmall)
+                Text(
+                    "Reliability ${source.reliabilityScore}/100 · ${source.lastItemCount} items",
+                    style = MaterialTheme.typography.labelSmall, color = TradingColors.TextSecondary,
+                )
+            }
+            val color = when {
+                source.reliabilityScore >= 80 -> TradingColors.Low
+                source.reliabilityScore >= 60 -> TradingColors.Medium
+                else -> TradingColors.High
+            }
+            Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(TradingColors.SurfaceHigh)) {
+                Box(
+                    Modifier.fillMaxWidth(source.reliabilityScore / 100f)
+                        .height(6.dp).clip(RoundedCornerShape(3.dp)).background(color),
+                )
+            }
+            source.lastError?.takeIf { source.status == "failed" }?.let {
+                Text(it, style = MaterialTheme.typography.labelSmall, color = TradingColors.Critical, maxLines = 2)
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusChip(status: String) {
+    val (label, color) = when (status) {
+        "connected" -> "CONNECTED" to TradingColors.Low
+        "failed" -> "FAILED" to TradingColors.Critical
+        "rate_limited" -> "RATE LIMITED" to TradingColors.High
+        "no_items" -> "NO ITEMS" to TradingColors.Medium
+        "unavailable" -> "UNAVAILABLE" to TradingColors.TextSecondary
+        else -> "PENDING" to TradingColors.TextSecondary
+    }
+    Box(
+        Modifier.clip(RoundedCornerShape(20.dp)).background(color.copy(alpha = 0.18f)).padding(horizontal = 9.dp, vertical = 3.dp),
+    ) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = color)
     }
 }
