@@ -37,9 +37,6 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Inherits API_BASE_URL from defaultConfig (same public HTTPS URL).
         }
-        debug {
-            applicationIdSuffix = ".debug"
-        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
