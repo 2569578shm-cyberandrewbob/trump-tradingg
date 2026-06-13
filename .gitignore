@@ -12,3 +12,9 @@ dist/
 .env
 firebase-service-account.json
 *.log
+
+# IDE
+.idea/
+
+# Local scratch
+web-preview/
