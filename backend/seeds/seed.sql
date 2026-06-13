@@ -1,73 +1,67 @@
--- Seed sources (adapters must exist for each key)
+-- ============================================================================
+-- Seed: real, verified data sources (each key has a registered adapter unless
+-- noted). Reachability audited 2026-06-13. No demo statements are seeded —
+-- content comes from real ingestion so verification is unambiguous.
+-- ============================================================================
+
 INSERT INTO sources (key, name, type, url, enabled, poll_seconds) VALUES
-  ('truth_social',    'Truth Social (official posts)',        'truth_social', 'https://truthsocial.com/@realDonaldTrump', FALSE, 30),
-  ('whitehouse_news', 'White House — Briefing Room',          'gov_feed',     'https://www.whitehouse.gov/news/feed/',    TRUE,  120),
-  ('reuters_politics','Reuters Politics RSS',                 'rss',          'https://www.reutersagency.com/feed/?best-topics=political-general', TRUE, 90),
-  ('ap_politics',     'Associated Press Politics RSS',        'rss',          'https://rsshub.app/ap/topics/politics',    TRUE,  90),
-  ('news_api',        'NewsAPI breaking headlines',           'news_api',     'https://newsapi.org',                      FALSE, 120),
-  ('press_transcripts','Press conference transcripts (Roll Call FactBase style feed)', 'transcript', NULL, FALSE, 300)
+  ('truth_social',           'Truth Social — @realDonaldTrump (official)',   'truth_social', 'https://truthsocial.com/@realDonaldTrump', TRUE,  60),
+  ('whitehouse_news',        'White House — News & Releases',                'gov_feed',     'https://www.whitehouse.gov/news/feed/',    TRUE,  120),
+  ('whitehouse_actions',     'White House — Presidential Actions',           'gov_feed',     'https://www.whitehouse.gov/presidential-actions/feed/', TRUE, 300),
+  ('googlenews_trump',       'Google News — Trump (aggregator)',             'rss',          'https://news.google.com/rss/search?q=Trump', TRUE, 120),
+  ('ap_googlenews',          'AP News — Trump (via Google News)',            'rss',          'https://news.google.com/rss/search?q=Trump+site:apnews.com', TRUE, 180),
+  ('cnbc_top',               'CNBC — Top News',                              'rss',          'https://www.cnbc.com/id/100003114/device/rss/rss.html', TRUE, 180),
+  ('cnbc_economy',           'CNBC — Economy',                               'rss',          'https://www.cnbc.com/id/20910258/device/rss/rss.html',  TRUE, 180),
+  ('marketwatch',            'MarketWatch — Top Stories',                    'rss',          'https://feeds.content.dowjones.io/public/rss/mw_topstories', TRUE, 180),
+  ('yahoo_finance',          'Yahoo Finance — Headlines',                    'rss',          'https://feeds.finance.yahoo.com/rss/2.0/headline', TRUE, 180),
+  ('transcripts_googlenews', 'Trump remarks/transcripts (delayed monitor)',  'transcript',   'https://news.google.com/rss/search?q=Trump+transcript', TRUE, 300),
+  -- Disabled: requires an API key (surfaced as "requires key", never silently skipped)
+  ('news_api',               'NewsAPI breaking headlines (requires key)',    'news_api',     'https://newsapi.org', FALSE, 120),
+  -- Disabled: no working adapter — Reuters public RSS was discontinued; needs licensed Reuters Connect API
+  ('reuters_rss',            'Reuters RSS (discontinued — needs license)',   'rss',          'https://www.reutersagency.com/feed/', FALSE, 180)
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO source_reliability (source_id, reliability_score, notes)
 SELECT id,
   CASE key
-    WHEN 'truth_social'     THEN 95  -- primary source, verbatim
-    WHEN 'whitehouse_news'  THEN 95  -- official government feed
-    WHEN 'reuters_politics' THEN 90
-    WHEN 'ap_politics'      THEN 90
-    WHEN 'news_api'         THEN 60  -- aggregator, mixed outlets
-    WHEN 'press_transcripts' THEN 85
+    WHEN 'truth_social'           THEN 95
+    WHEN 'whitehouse_news'        THEN 95
+    WHEN 'whitehouse_actions'     THEN 95
+    WHEN 'ap_googlenews'          THEN 85
+    WHEN 'cnbc_top'               THEN 80
+    WHEN 'cnbc_economy'           THEN 80
+    WHEN 'marketwatch'            THEN 78
+    WHEN 'yahoo_finance'          THEN 75
+    WHEN 'transcripts_googlenews' THEN 80
+    WHEN 'googlenews_trump'       THEN 70
+    WHEN 'news_api'               THEN 60
+    WHEN 'reuters_rss'            THEN 90
     ELSE 50
   END,
   'seeded default'
 FROM sources
 ON CONFLICT (source_id) DO NOTHING;
 
--- Demo admin user (password: Admin123! — change immediately) and demo user (password: Demo123!)
+-- Demo admin (password: Admin123!) and demo user (password: Demo123!). Change immediately.
 INSERT INTO users (email, password_hash, display_name, role) VALUES
-  ('admin@trumptrading.app', '$2a$10$Q9PpieuxBzhpgquCgPDpQ.cHGdyVAxNTFTSwIWE/2eDqQI24M3rsa', 'Admin', 'admin'),
-  ('demo@trumptrading.app',  '$2a$10$cnksOOJWLtnPBqcSeAUOH.Z.aybvZNAY5XdwQqU3F6q4VZJ/rdEoO', 'Demo Trader', 'user')
+  ('admin@trumptrading.app', '$2a$10$O3r3QRSlacHtf1URFnUOjuzFE4GCe8aLboNFHPuRRWMpm/wzU36G.', 'Admin', 'admin'),
+  ('demo@trumptrading.app',  '$2a$10$ySkDvypeUTCBzHq70avwSOguJoGTJiWlBW6zkfDVg51F6.32iRUzK', 'Demo Trader', 'user')
 ON CONFLICT (email) DO NOTHING;
 
+-- Demo user gets a PLACEHOLDER FCM token so the notification dispatcher's
+-- logging path is exercisable. This is NOT a real device; actual push delivery
+-- requires a configured Firebase service account.
+UPDATE users SET fcm_tokens = ARRAY['PLACEHOLDER_FCM_TOKEN_NOT_A_REAL_DEVICE']
+WHERE email = 'demo@trumptrading.app' AND cardinality(fcm_tokens) = 0;
+
 INSERT INTO notification_preferences (user_id, min_risk_level)
-SELECT id, 'High' FROM users
+SELECT id, CASE WHEN email = 'demo@trumptrading.app' THEN 'Low' ELSE 'High' END
+FROM users
 ON CONFLICT (user_id) DO NOTHING;
 
 -- Demo watchlist
 INSERT INTO watchlists (user_id, ticker)
 SELECT u.id, t.ticker
-FROM users u, (VALUES ('NVDA'),('TSLA'),('AAPL'),('BTC'),('GOLD'),('OIL')) AS t(ticker)
+FROM users u, (VALUES ('NVDA'),('TSLA'),('AAPL'),('BTC'),('GOLD'),('OIL'),('LMT'),('XOM')) AS t(ticker)
 WHERE u.email = 'demo@trumptrading.app'
-ON CONFLICT DO NOTHING;
-
--- Demo statement + alert so the app has content on first run
-WITH src AS (SELECT id FROM sources WHERE key = 'whitehouse_news'),
-ins AS (
-  INSERT INTO raw_statements (source_id, content, content_hash, source_url, stated_at, confidence_score, status)
-  SELECT id,
-    'We may impose a 50% tariff on Chinese imports. Details to follow next week.',
-    'demo-seed-hash-0001',
-    'https://www.whitehouse.gov/news/demo',
-    now() - interval '1 hour', 95, 'processed'
-  FROM src
-  ON CONFLICT (content_hash) DO NOTHING
-  RETURNING id
-)
-INSERT INTO processed_alerts (raw_statement_id, is_market_relevant, risk_level, categories, summary,
-  affected_sectors, sentiment, urgency_score, reasoning, notification_title, notification_body, confirmed, analysis_engine)
-SELECT id, TRUE, 'Critical', ARRAY['Tariffs','China','Trade deals'],
-  'Statement signals a possible 50% tariff on Chinese imports, with details expected next week.',
-  ARRAY['Technology','Retail','Semiconductors','Industrials'], 'Negative', 95,
-  'Direct tariff threat against the largest US trading partner historically moves equities, especially China-exposed tech and retail.',
-  'CRITICAL: Trump tariff statement detected',
-  'Possible impact on China-linked stocks, tech, semiconductors, and retail. Tap to view full statement.',
-  TRUE, 'rules'
-FROM ins
-ON CONFLICT (raw_statement_id) DO NOTHING;
-
-INSERT INTO alert_tickers (alert_id, ticker)
-SELECT a.id, t.ticker
-FROM processed_alerts a
-JOIN raw_statements r ON r.id = a.raw_statement_id AND r.content_hash = 'demo-seed-hash-0001',
-(VALUES ('AAPL'),('NVDA'),('TSLA'),('WMT'),('TSM'),('BABA')) AS t(ticker)
 ON CONFLICT DO NOTHING;

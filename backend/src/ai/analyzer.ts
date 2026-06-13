@@ -45,7 +45,14 @@ export async function analyzeStatement(
       );
     }
   }
-  return { analysis: classifyWithRules(content), engine: 'rules' };
+  // Rule-based fallback (no AI key or AI failed). Logged for observability.
+  const analysis = classifyWithRules(content);
+  await query(
+    `INSERT INTO ai_analysis_logs (raw_statement_id, model, raw_response, valid_json, fallback_used, latency_ms)
+     VALUES ($1,'rules',$2,TRUE,TRUE,$3)`,
+    [rawStatementId, JSON.stringify(analysis).slice(0, 2000), Date.now() - started],
+  );
+  return { analysis, engine: 'rules' };
 }
 
 /**
