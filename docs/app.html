@@ -320,39 +320,90 @@ function riskColor(r) { return {Critical:'#E53935',High:'#FB8C00',Medium:'#FDD83
 function isConfirmed(src) { return /white house|associated press|\bap\b|reuters|c-span/i.test(src); }
 
 // ============================ FEEDS ============================
-const TRUMP_FEEDS = [
-  { name: 'Google News · Trump', url: 'https://news.google.com/rss/search?q=Trump+when:1d&hl=en-US&gl=US&ceid=US:en' },
-  { name: 'AP · Trump', url: 'https://news.google.com/rss/search?q=Trump+site:apnews.com&hl=en-US&gl=US&ceid=US:en' },
-  { name: 'White House News', url: 'https://www.whitehouse.gov/news/feed/' },
-  { name: 'White House Actions', url: 'https://www.whitehouse.gov/presidential-actions/feed/' },
-];
-const FALLBACK_FEEDS = [
-  { name: 'Wars & Conflicts', url: 'https://news.google.com/rss/search?q=war+OR+conflict+OR+ceasefire+when:1d&hl=en-US&gl=US&ceid=US:en' },
-  { name: 'Middle East', url: 'https://news.google.com/rss/search?q=Gaza+OR+Israel+OR+Iran+when:1d&hl=en-US&gl=US&ceid=US:en' },
-  { name: 'Ukraine / Russia', url: 'https://news.google.com/rss/search?q=Ukraine+Russia+when:1d&hl=en-US&gl=US&ceid=US:en' },
-  { name: 'MarketWatch', url: 'https://feeds.content.dowjones.io/public/rss/mw_topstories' },
-  { name: 'CNBC Top News', url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html' },
+const GN = 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=';
+function gn(q){ return GN + encodeURIComponent(q); }
+function gsite(site){ return gn('Trump site:' + site + ' when:3d'); }
+
+// Full source catalog (grouped). Every source here is polled and shown on the
+// Sources screen with live status.
+const SOURCES = [
+  // ── Official US government ──
+  { name: 'White House — News',         url: 'https://www.whitehouse.gov/news/feed/',                 group: 'Official', kind: 'official' },
+  { name: 'White House — Actions',      url: 'https://www.whitehouse.gov/presidential-actions/feed/', group: 'Official', kind: 'official' },
+  { name: 'Federal Register — Presidential', url: 'https://www.federalregister.gov/api/v1/documents.rss?conditions%5Btype%5D%5B%5D=PRESDOCU&order=newest', group: 'Official', kind: 'official' },
+  // ── Market & financial ──
+  { name: 'CNBC — Top News',            url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html', group: 'Market', kind: 'news' },
+  { name: 'CNBC — Economy',             url: 'https://www.cnbc.com/id/20910258/device/rss/rss.html',  group: 'Market', kind: 'news' },
+  { name: 'MarketWatch — Top',          url: 'https://feeds.content.dowjones.io/public/rss/mw_topstories', group: 'Market', kind: 'news' },
+  { name: 'Yahoo Finance',              url: 'https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC&region=US&lang=en-US', group: 'Market', kind: 'news' },
+  { name: 'Reuters · Trump',            url: gsite('reuters.com'),     group: 'Market', kind: 'news' },
+  { name: 'CNBC · Trump',               url: gsite('cnbc.com'),        group: 'Market', kind: 'news' },
+  { name: 'MarketWatch · Trump',        url: gsite('marketwatch.com'), group: 'Market', kind: 'news' },
+  // ── General reliable news ──
+  { name: 'Google News · Trump',        url: gn('Trump when:1d'),      group: 'General', kind: 'news' },
+  { name: 'AP · Trump',                 url: gsite('apnews.com'),      group: 'General', kind: 'news' },
+  { name: 'BBC · Trump',                url: gsite('bbc.com'),         group: 'General', kind: 'news' },
+  { name: 'CNN · Trump',                url: gsite('cnn.com'),         group: 'General', kind: 'news' },
+  { name: 'Fox News · Trump',           url: gsite('foxnews.com'),     group: 'General', kind: 'news' },
+  { name: 'The Guardian · Trump',       url: gsite('theguardian.com'), group: 'General', kind: 'news' },
+  { name: 'Politico · Trump',           url: gsite('politico.com'),    group: 'General', kind: 'news' },
+  { name: 'Axios · Trump',              url: gsite('axios.com'),       group: 'General', kind: 'news' },
+  { name: 'The Hill · Trump',           url: gsite('thehill.com'),     group: 'General', kind: 'news' },
+  { name: 'NPR · Trump',                url: gsite('npr.org'),         group: 'General', kind: 'news' },
+  { name: 'CBS News · Trump',           url: gsite('cbsnews.com'),     group: 'General', kind: 'news' },
+  { name: 'ABC News · Trump',           url: gsite('abcnews.go.com'),  group: 'General', kind: 'news' },
+  { name: 'NBC News · Trump',           url: gsite('nbcnews.com'),     group: 'General', kind: 'news' },
+  { name: 'New York Times · Trump',     url: gsite('nytimes.com'),     group: 'General', kind: 'news' },
+  { name: 'Washington Post · Trump',    url: gsite('washingtonpost.com'), group: 'General', kind: 'news' },
+  // ── International / geopolitical ──
+  { name: 'Al Jazeera · Trump',         url: gsite('aljazeera.com'),   group: 'Geopolitical', kind: 'news' },
+  { name: 'France24 · Trump',           url: gsite('france24.com'),    group: 'Geopolitical', kind: 'news' },
+  { name: 'DW · Trump',                 url: gsite('dw.com'),          group: 'Geopolitical', kind: 'news' },
+  { name: 'Wars & Conflicts',           url: gn('war OR conflict OR ceasefire OR strike when:1d'), group: 'Geopolitical', kind: 'news' },
+  { name: 'Middle East',                url: gn('Gaza OR Israel OR Iran when:1d'),  group: 'Geopolitical', kind: 'news' },
+  { name: 'Ukraine / Russia',           url: gn('Ukraine Russia when:1d'),          group: 'Geopolitical', kind: 'news' },
+  // ── Truth Social via News ──
+  { name: 'Truth Social via News — core',    url: gn('Trump "Truth Social" when:3d'), group: 'Truth Social via News', kind: 'news' },
+  { name: 'Truth Social via News — markets', url: gn('Trump "Truth Social" (tariff OR oil OR crypto OR stocks OR Fed OR sanctions) when:3d'), group: 'Truth Social via News', kind: 'news' },
 ];
 
-async function fetchRss2json(url) {
-  const ep = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(url) + '&count=25';
-  const r = await fetch(ep, { signal: AbortSignal.timeout(11000) });
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  const d = await r.json();
-  if (d.status !== 'ok') throw new Error(d.message || 'rss2json error');
-  return (d.items||[]).map(it => mkItem(it.title, it.description||it.content, it.pubDate, it.link, d.feed && d.feed.title));
+// CORS proxies, tried in order. allorigins is most reliable; rss2json last
+// because its free tier rate-limits (the 503s you saw on Google News / AP).
+const PROXIES = [
+  { name: 'allorigins-raw', kind: 'xml',     build: u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u) },
+  { name: 'corsproxy',      kind: 'xml',     build: u => 'https://corsproxy.io/?url=' + encodeURIComponent(u) },
+  { name: 'allorigins-get', kind: 'wrapped', build: u => 'https://api.allorigins.win/get?url=' + encodeURIComponent(u) },
+  { name: 'thingproxy',     kind: 'xml',     build: u => 'https://thingproxy.freeboard.io/fetch/' + u },
+  { name: 'rss2json',       kind: 'json',    build: u => 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(u) + '&count=25' },
+];
+
+function parseXmlItems(text) {
+  const xml = new DOMParser().parseFromString(text, 'text/xml');
+  const ch = xml.querySelector('channel > title') || xml.querySelector('feed > title');
+  const src = ch ? ch.textContent : '';
+  let nodes = Array.from(xml.querySelectorAll('item'));
+  if (!nodes.length) nodes = Array.from(xml.querySelectorAll('entry')); // Atom
+  return nodes.slice(0, 25).map(it => {
+    const g = sel => { const e = it.querySelector(sel); return e ? e.textContent : ''; };
+    const link = it.querySelector('link');
+    const href = link ? (link.getAttribute('href') || link.textContent) : '';
+    return mkItem(g('title'), g('description') || g('summary') || g('content'), g('pubDate') || g('updated') || g('published'), href, src);
+  });
 }
-async function fetchCorsProxy(url) {
-  const r = await fetch('https://corsproxy.io/?' + encodeURIComponent(url), { signal: AbortSignal.timeout(12000) });
+async function fetchVia(proxy, url) {
+  const r = await fetch(proxy.build(url), { signal: AbortSignal.timeout(13000) });
   if (!r.ok) throw new Error('HTTP ' + r.status);
-  const xml = new DOMParser().parseFromString(await r.text(), 'text/xml');
-  const chTitle = xml.querySelector('channel > title');
-  return Array.from(xml.querySelectorAll('item')).slice(0,25).map(it => mkItem(
-    it.querySelector('title') && it.querySelector('title').textContent,
-    it.querySelector('description') && it.querySelector('description').textContent,
-    it.querySelector('pubDate') && it.querySelector('pubDate').textContent,
-    it.querySelector('link') && it.querySelector('link').textContent,
-    chTitle && chTitle.textContent));
+  if (proxy.kind === 'json') {
+    const d = await r.json();
+    if (d.status !== 'ok') throw new Error(d.message || 'rss2json error');
+    return (d.items || []).map(it => mkItem(it.title, it.description || it.content, it.pubDate, it.link, d.feed && d.feed.title));
+  }
+  let text;
+  if (proxy.kind === 'wrapped') { const d = await r.json(); text = d.contents || ''; }
+  else text = await r.text();
+  const items = parseXmlItems(text);
+  if (!items.length) throw new Error('empty/unparseable');
+  return items;
 }
 function mkItem(title, desc, pub, link, src) {
   return {
@@ -362,11 +413,20 @@ function mkItem(title, desc, pub, link, src) {
   };
 }
 async function fetchFeed(feed) {
-  try { const items = await fetchRss2json(feed.url); return { feed: feed, items: items, status: items.length ? 'connected' : 'no-items' }; }
-  catch(e1) {
-    try { const items = await fetchCorsProxy(feed.url); return { feed: feed, items: items, status: items.length ? 'connected' : 'no-items' }; }
-    catch(e2) { return { feed: feed, items: [], status: 'failed', error: e2.message }; }
+  let lastErr = '';
+  for (const p of PROXIES) {
+    try { const items = await fetchVia(p, feed.url); return { feed, items, status: items.length ? 'connected' : 'no-items' }; }
+    catch(e) { lastErr = (e && e.message) || 'error'; }
   }
+  return { feed, items: [], status: 'failed', error: lastErr };
+}
+// Limited-concurrency map so we don't hammer the proxies (which itself causes 503s).
+async function poolMap(arr, n, fn) {
+  const out = new Array(arr.length);
+  let i = 0;
+  async function worker() { while (i < arr.length) { const idx = i++; out[idx] = await fn(arr[idx]); } }
+  await Promise.all(Array.from({ length: Math.min(n, arr.length) }, worker));
+  return out;
 }
 
 // ============================ STATE ============================
@@ -377,7 +437,7 @@ const State = {
   feedLimit: 25,
   watchlist: JSON.parse(localStorage.getItem('tt_watchlist') || '["OIL","SPY","DXY"]'),
   lastUpdated: null, loading: true, error: null,
-  refreshMs: parseInt(localStorage.getItem('tt_refresh') || '60000'),
+  refreshMs: parseInt(localStorage.getItem('tt_refresh') || '120000'),
 };
 function saveWatchlist() { localStorage.setItem('tt_watchlist', JSON.stringify(State.watchlist)); }
 
@@ -386,20 +446,15 @@ async function loadFeeds() {
   State.loading = true;
   renderRefreshBar();
 
-  let results = await Promise.all(TRUMP_FEEDS.map(fetchFeed));
-  let items = results.reduce((acc,r) => acc.concat(r.items), []);
-  const trumpItems = items.filter(it => /trump|white house|president|tariff|maga|mar-a-lago|administration/i.test(it.title + it.summary));
+  // Poll the full catalog with limited concurrency (5 at a time).
+  const results = await poolMap(SOURCES, 5, fetchFeed);
+  State.feedHealth = results.map(r => ({ name: r.feed.name, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error }));
 
-  if (trumpItems.length >= 3) {
-    items = trumpItems; State.usingFallback = false;
-    State.feedHealth = results.map(r => ({ name: r.feed.name, status: r.status, count: r.items.length, error: r.error }));
-  } else {
-    State.usingFallback = true;
-    const fb = await Promise.all(FALLBACK_FEEDS.map(fetchFeed));
-    items = fb.reduce((acc,r) => acc.concat(r.items), []);
-    State.feedHealth = results.map(r => ({ name: r.feed.name, status: r.status === 'connected' ? 'no-items' : r.status, count: r.items.length, error: r.error }))
-      .concat(fb.map(r => ({ name: r.feed.name, status: r.status, count: r.items.length, error: r.error })));
-  }
+  let items = results.reduce((acc, r) => acc.concat(r.items), []);
+  // Prefer Trump-relevant items; if very few, keep everything (wars/markets fill in).
+  const trumpItems = items.filter(it => /trump|white house|president|tariff|maga|mar-a-lago|administration/i.test(it.title + it.summary));
+  State.usingFallback = trumpItems.length < 3;
+  if (!State.usingFallback) items = trumpItems;
 
   if (!items.length) {
     State.error = 'Could not reach any news feeds. Check your internet connection or try Refresh.';
@@ -566,11 +621,33 @@ function renderSources() {
   const h = State.feedHealth;
   const cls = s => s==='connected'?'src-connected':s==='failed'?'src-failed':'src-noitems';
   const lbl = s => s==='connected'?'Connected':s==='failed'?'Failed':'No items';
+  const connected = h.filter(s => s.status==='connected').length;
+  const failed = h.filter(s => s.status==='failed').length;
+
+  const GROUP_ORDER = ['Official','Market','General','Geopolitical','Truth Social via News'];
+  const rowHtml = s => '<div class="src-row"><div class="src-top"><div class="src-name">'+esc(s.name)+
+    (s.kind==='official'?' <span style="color:var(--low);font-size:9px;font-weight:700">OFFICIAL</span>':'')+
+    '</div><div class="src-status '+cls(s.status)+'">'+lbl(s.status)+'</div></div>'+
+    '<div class="src-meta">'+s.count+' items fetched'+(s.error?' · '+esc(s.error):'')+'</div></div>';
+
+  let groupsHtml = '';
+  for (const g of GROUP_ORDER) {
+    const list = h.filter(s => s.group === g);
+    if (!list.length) continue;
+    groupsHtml += '<div class="section-head">'+esc(g)+'</div>' + list.map(rowHtml).join('');
+  }
+  // any groups not in the explicit order
+  const known = new Set(GROUP_ORDER);
+  const others = h.filter(s => !known.has(s.group));
+  if (others.length) groupsHtml += '<div class="section-head">Other</div>' + others.map(rowHtml).join('');
+
   return '<div class="page">' +
     '<div class="page-title">Sources</div>' +
-    '<div class="page-subtitle">Live feed health · last checked ' + (State.lastUpdated?cairoClock(State.lastUpdated)+' Cairo':'—') + '</div>' +
-    (h.length ? h.map(s => '<div class="src-row"><div class="src-top"><div class="src-name">'+esc(s.name)+'</div><div class="src-status '+cls(s.status)+'">'+lbl(s.status)+'</div></div><div class="src-meta">'+s.count+' items fetched'+(s.error?' · '+esc(s.error):'')+'</div></div>').join('') : '<div class="status-msg">No source data yet.</div>') +
-    '<div class="src-row" style="border-color:rgba(229,57,53,.3)"><div class="src-top"><div class="src-name">Truth Social</div><div class="src-status src-failed">Unavailable</div></div><div class="src-meta">No public real-time API. Cloudflare blocks browser/Node fetch. Works only in the backend via a system-curl workaround — not reachable from this web preview.</div></div>' +
+    '<div class="page-subtitle">' + (h.length ? (connected+' connected · '+failed+' failed · '+h.length+' total') : 'Live feed health') +
+      ' · last checked ' + (State.lastUpdated?cairoClock(State.lastUpdated)+' Cairo':'—') + '</div>' +
+    '<div class="section-head">Truth Social (Direct)</div>' +
+    '<div class="src-row" style="border-color:rgba(229,57,53,.3)"><div class="src-top"><div class="src-name">Truth Social — @realDonaldTrump</div><div class="src-status src-failed">Unavailable</div></div><div class="src-meta">No public real-time API. Cloudflare blocks browser/Node fetch. Works only in the backend via a system-curl workaround — not reachable from this web preview.</div></div>' +
+    (h.length ? groupsHtml : '<div class="status-msg">Loading sources…</div>') +
   '</div>';
 }
 
