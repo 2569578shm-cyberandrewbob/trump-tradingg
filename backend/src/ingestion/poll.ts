@@ -152,7 +152,7 @@ export async function loadEnabledSources(): Promise<SourceRow[]> {
 }
 
 /** One scheduler tick: poll every enabled source whose interval has elapsed. */
-export async function pollDue(): Promise<PollResult[]> {
+export async function pollDue(opts: { enqueue?: boolean } = {}): Promise<PollResult[]> {
   const sources = await loadEnabledSources();
   const now = Date.now();
   const results: PollResult[] = [];
@@ -160,7 +160,7 @@ export async function pollDue(): Promise<PollResult[]> {
     const last = lastPolled.get(src.key) ?? 0;
     if (now - last < src.poll_seconds * 1000) continue;
     lastPolled.set(src.key, now);
-    results.push(await pollSource(src));
+    results.push(await pollSource(src, opts));
   }
   return results;
 }

@@ -1,0 +1,71 @@
+# Render Blueprint — free single-instance deploy.
+# The web service runs the API AND the ingestion/analysis pipeline in-process
+# (RUN_SCHEDULER=true), so no paid background workers are needed.
+# Deploy: Render dashboard → New → Blueprint → pick this repo → Apply.
+
+databases:
+  - name: trump-trading-db
+    databaseName: trump_trading
+    plan: free
+    region: frankfurt
+
+services:
+  # ── Web API + in-process scheduler ──
+  - type: web
+    name: trump-trading-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    # Run migrations + seed (idempotent) then start the server.
+    startCommand: node dist/db/migrate.js && node dist/db/seed.js && node dist/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8080
+      - key: RUN_SCHEDULER
+        value: "true"
+      - key: SCHEDULER_INTERVAL_SECONDS
+        value: "90"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: trump-trading-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: trump-trading-redis
+          type: redis
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_TTL
+        value: 15m
+      - key: JWT_REFRESH_TTL
+        value: 30d
+      - key: LOG_LEVEL
+        value: info
+      - key: INGEST_POLL_SECONDS_DEFAULT
+        value: "120"
+      - key: DEDUPE_WINDOW_HOURS
+        value: "6"
+      - key: DEDUPE_SIMILARITY_THRESHOLD
+        value: "0.85"
+      - key: MIN_RELIABILITY_FOR_CRITICAL
+        value: "70"
+      # Optional — add in the Render dashboard to enable AI analysis (otherwise
+      # the deterministic rules classifier is used):
+      # - key: ANTHROPIC_API_KEY
+      #   value: sk-ant-...
+
+  # ── Redis / Key Value (rate-limit + dedupe cache) ──
+  - type: redis
+    name: trump-trading-redis
+    plan: free
+    region: frankfurt
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
