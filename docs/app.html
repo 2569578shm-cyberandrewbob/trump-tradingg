@@ -496,7 +496,7 @@ async function loadFeeds() {
   renderRefreshBar();
 
   const acc = [];
-  const health = SOURCES.map(s => ({ name: s.name, group: s.group, kind: s.kind, status: 'pending', count: 0 }));
+  const health = SOURCES.map(s => ({ name: s.name, url: s.url, group: s.group, kind: s.kind, status: 'pending', count: 0 }));
   State.feedHealth = health;
   let lastRender = 0;
 
@@ -504,7 +504,7 @@ async function loadFeeds() {
   // arrives — content shows up immediately instead of waiting for all 30+ feeds.
   await poolMap(SOURCES, 4, (f) => fetchFeed(f, 0), (r, idx) => {
     if (job !== loadJobId) return;
-    health[idx] = { name: r.feed.name, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error };
+    health[idx] = { name: r.feed.name, url: r.feed.url, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error };
     if (r.items.length) for (const it of r.items) acc.push(it);
     const now = Date.now();
     if (now - lastRender > 300) {
@@ -655,18 +655,48 @@ function renderWatchlist() {
   '</div>';
 }
 
+// Map a browser-side fetch error to a precise, honest reason.
+function sourceReason(s) {
+  if (s.status === 'connected') return 'OK · ' + s.count + ' items fetched';
+  if (s.status === 'pending') return 'Checking…';
+  const e = s.error || '';
+  if (s.status === 'no-items') return 'Reached, but 0 items this poll';
+  if (/HTTP 4?22/.test(e)) return 'HTTP 422 — CORS proxy could not process this feed (rate-limited)';
+  if (/HTTP 503|HTTP 502/.test(e)) return 'HTTP 503 — proxy/source temporarily unavailable';
+  if (/HTTP 429/.test(e)) return 'HTTP 429 — CORS proxy rate-limited';
+  if (/HTTP 403|HTTP 401/.test(e)) return 'HTTP 403 — blocked by proxy/source';
+  if (/empty|unparseable/.test(e)) return 'Parser error — proxy returned no items';
+  if (/timed out|timeout|aborted/i.test(e)) return 'Timed out via CORS proxy';
+  if (/Failed to fetch|NetworkError|load failed/i.test(e)) return 'Failed to fetch — all CORS proxies refused (browser limit)';
+  return e ? ('Failed — ' + e) : 'Failed to fetch';
+}
+function retrySource(idx) {
+  const s = State.feedHealth[idx]; if (!s || !s.url) return;
+  s.status = 'pending'; s.error = ''; render();
+  fetchFeed({ name: s.name, url: s.url, group: s.group, kind: s.kind }, 0).then(r => {
+    State.feedHealth[idx] = { name: r.feed.name, url: r.feed.url, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error };
+    if (r.items.length) { State.lastUpdated = new Date(); }
+    render();
+  });
+}
+
 function renderSources() {
   const h = State.feedHealth;
-  const cls = s => s==='connected'?'src-connected':s==='failed'?'src-failed':'src-noitems';
-  const lbl = s => s==='connected'?'Connected':s==='failed'?'Failed':'No items';
+  const cls = s => s==='connected'?'src-connected':(s==='failed'||s==='blocked')?'src-failed':'src-noitems';
+  const lbl = s => s==='connected'?'Connected':s==='pending'?'Checking':(s==='no-items'?'No items':'Failed');
   const connected = h.filter(s => s.status==='connected').length;
   const failed = h.filter(s => s.status==='failed').length;
 
   const GROUP_ORDER = ['Official','Market','General','Geopolitical','Truth Social via News'];
-  const rowHtml = s => '<div class="src-row"><div class="src-top"><div class="src-name">'+esc(s.name)+
+  const rowHtml = (s, gi) => {
+    const idx = State.feedHealth.indexOf(s);
+    const retry = (s.status !== 'connected' && s.status !== 'pending')
+      ? '<span onclick="event.stopPropagation();retrySource('+idx+')" style="cursor:pointer;color:var(--accent);font-size:10px;font-weight:700;border:1px solid var(--accent);border-radius:12px;padding:2px 8px;margin-left:6px">↻ Retry</span>' : '';
+    return '<div class="src-row"><div class="src-top"><div class="src-name">'+esc(s.name)+
     (s.kind==='official'?' <span style="color:var(--low);font-size:9px;font-weight:700">OFFICIAL</span>':'')+
-    '</div><div class="src-status '+cls(s.status)+'">'+lbl(s.status)+'</div></div>'+
-    '<div class="src-meta">'+s.count+' items fetched'+(s.error?' · '+esc(s.error):'')+'</div></div>';
+    '</div><div style="display:flex;align-items:center"><div class="src-status '+cls(s.status)+'">'+lbl(s.status)+'</div>'+retry+'</div></div>'+
+    '<div class="src-meta">'+esc(sourceReason(s))+'</div></div>';
+  };
 
   let groupsHtml = '';
   for (const g of GROUP_ORDER) {
@@ -683,6 +713,7 @@ function renderSources() {
     '<div class="page-title">Sources</div>' +
     '<div class="page-subtitle">' + (h.length ? (connected+' connected · '+failed+' failed · '+h.length+' total') : 'Live feed health') +
       ' · last checked ' + (State.lastUpdated?cairoClock(State.lastUpdated)+' Cairo':'—') + '</div>' +
+    '<div class="src-row" style="border-color:rgba(61,139,253,.3);background:rgba(61,139,253,.06)"><div class="src-meta" style="color:var(--text2)">ℹ️ This is a <b>backend-less web preview</b>. Browsers can\'t fetch RSS cross-origin, so feeds are pulled through free public CORS proxies that rate-limit — a source marked FAILED here (HTTP 422/503) is the <b>proxy</b> failing, not the source. The real backend fetches every one of these server-side at HTTP 200. Tap <b>↻ Retry</b> on any failed source.</div></div>' +
     '<div class="section-head">Truth Social (Direct)</div>' +
     '<div class="src-row" style="border-color:rgba(229,57,53,.3)"><div class="src-top"><div class="src-name">Truth Social — @realDonaldTrump</div><div class="src-status src-failed">Unavailable</div></div><div class="src-meta">No public real-time API. Cloudflare blocks browser/Node fetch. Works only in the backend via a system-curl workaround — not reachable from this web preview.</div></div>' +
     (h.length ? groupsHtml : '<div class="status-msg">Loading sources…</div>') +

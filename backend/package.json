@@ -13,6 +13,7 @@
     "migrate": "tsx src/db/migrate.ts",
     "seed": "tsx src/db/seed.ts",
     "verify:once": "tsx src/scripts/runOnce.ts",
+    "test:sources": "tsx src/scripts/testSources.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src tests"
