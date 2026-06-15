@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trump Trading — Live Market Intelligence</title>
+<style>
+  :root{--bg:#0B0F14;--surface:#121821;--surface2:#1A2230;--border:#243044;--critical:#E53935;--high:#FB8C00;--medium:#FDD835;--low:#66BB6A;--accent:#3D8BFD;--text:#E6EBF2;--text2:#8A97A8}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;min-height:100vh}
+  a{color:var(--accent);text-decoration:none}
+  /* layout */
+  .shell{display:flex;min-height:100vh}
+  .side{width:210px;background:var(--surface);border-right:1px solid var(--border);position:sticky;top:0;height:100vh;flex-shrink:0;display:flex;flex-direction:column}
+  .brand{padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+  .brand .ic{width:32px;height:32px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff}
+  .brand b{font-size:15px}.brand small{display:block;font-size:9px;color:var(--text2)}
+  nav.menu{padding:10px}
+  nav.menu a{display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:8px;color:var(--text2);font-size:13px;cursor:pointer;margin-bottom:2px}
+  nav.menu a.on{background:var(--surface2);color:var(--text)}
+  nav.menu a .i{font-size:15px;width:18px;text-align:center}
+  .side-foot{margin-top:auto;padding:12px 14px;font-size:10px;color:var(--text2);border-top:1px solid var(--border)}
+  .live{display:inline-flex;align-items:center;gap:5px;color:var(--critical);font-weight:700;font-size:10px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--critical);animation:p 1.2s infinite}@keyframes p{0%,100%{opacity:1}50%{opacity:.25}}
+  main{flex:1;min-width:0}
+  .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:9px 22px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text2);position:sticky;top:0;z-index:20}
+  .page{padding:20px 22px;max-width:1100px}
+  .ptitle{font-size:22px;font-weight:800;margin-bottom:3px}.psub{font-size:12px;color:var(--text2);margin-bottom:16px}
+  /* stat cards */
+  .grid{display:grid;gap:12px}.g5{grid-template-columns:repeat(5,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:1fr 1fr}
+  @media(max-width:900px){.g5,.g3{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px}
+  .stat .v{font-size:26px;font-weight:800;line-height:1}.stat .l{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-top:6px}
+  .sec{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;font-weight:700;margin:20px 0 10px}
+  /* meter */
+  .meter .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.meter .score{font-size:28px;font-weight:900}
+  .track{height:11px;background:var(--surface2);border-radius:7px;overflow:hidden}.fill{height:100%;border-radius:7px}
+  .lbls{display:flex;justify-content:space-between;font-size:9px;color:var(--text2);margin-top:5px}
+  /* bars */
+  .bar{display:flex;align-items:center;gap:10px;margin-bottom:8px}.bl{font-size:12px;width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bt{flex:1;height:8px;background:var(--surface2);border-radius:6px;overflow:hidden}.bf{height:100%;background:var(--accent);border-radius:6px}.bc{font-size:12px;color:var(--text2);width:28px;text-align:right;font-weight:600}
+  /* pills/badges */
+  .pill{font-size:9px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;padding:3px 8px;border-radius:20px;white-space:nowrap}
+  .Critical{background:rgba(229,57,53,.18);color:var(--critical)}.High{background:rgba(251,140,0,.18);color:var(--high)}.Medium{background:rgba(253,216,53,.18);color:var(--medium)}.Low{background:rgba(102,187,106,.18);color:var(--low)}
+  .st-connected{background:rgba(102,187,106,.18);color:var(--low)}.st-failed,.st-blocked{background:rgba(229,57,53,.18);color:var(--critical)}
+  .st-degraded,.st-rate_limited,.st-no_items{background:rgba(253,216,53,.18);color:var(--medium)}.st-requires_key,.st-unavailable,.st-pending{background:rgba(138,148,166,.18);color:var(--text2)}
+  .tk{display:inline-block;font-size:11px;font-weight:700;background:rgba(61,139,253,.12);border:1px solid rgba(61,139,253,.3);color:var(--accent);padding:1px 7px;border-radius:4px;margin:2px 3px 0 0}
+  .chip{display:inline-block;font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:2px 8px;border-radius:12px;margin:2px 3px 0 0}
+  /* alert/source rows */
+  .row{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:13px 15px;margin-bottom:10px;cursor:pointer;transition:border-color .15s}
+  .row:hover{border-color:var(--accent)}
+  .row .head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .row .title{font-size:14px;font-weight:600;line-height:1.4}
+  .row .meta{font-size:11px;color:var(--text2);margin-top:5px}
+  .src-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 14px;font-size:11px;color:var(--text2);margin-top:8px}
+  .src-grid b{color:var(--text);font-weight:600}
+  .btn{font-size:11px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:14px;padding:3px 11px;cursor:pointer;background:transparent}
+  .btn:hover{background:rgba(61,139,253,.12)}.btn:disabled{opacity:.5;cursor:default}
+  .json{background:#070A0E;border:1px solid var(--border);border-radius:8px;padding:11px;font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--low);white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;margin-top:8px}
+  .empty{text-align:center;padding:40px;color:var(--text2);font-size:13px}
+  .spin{width:13px;height:13px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;display:inline-block;animation:s .8s linear infinite;vertical-align:middle}@keyframes s{to{transform:rotate(360deg)}}
+  /* modal */
+  .ov{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:100;display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 16px}
+  .ov.open{display:flex}.modal{background:var(--bg);border:1px solid var(--border);border-radius:14px;width:100%;max-width:760px;padding:0 0 24px}
+  .modal .mh{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;border-radius:14px 14px 0 0}
+  .modal .mb{padding:16px 18px}
+  .drow{margin-bottom:14px}.dl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px;font-weight:700}
+  .quote{background:var(--surface);border-left:3px solid var(--accent);border-radius:8px;padding:12px 14px;font-style:italic;line-height:1.55;font-size:14px}
+  .x{cursor:pointer;color:var(--text2);font-size:20px;line-height:1}
+  .mi-line{font-size:12px;margin-top:3px}.pos{color:var(--low)}.neg{color:var(--critical)}.mix{color:var(--high)}.unc{color:var(--text2)}
+  .tabbar{display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap}
+  .tab{padding:5px 13px;border-radius:20px;border:1px solid var(--border);font-size:12px;color:var(--text2);cursor:pointer}
+  .tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .banner{background:rgba(229,57,53,.08);border:1px solid rgba(229,57,53,.3);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--text);margin-bottom:16px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand"><div class="ic">T</div><div><b>Trump Trading</b><small>Live market intelligence</small></div></div>
+    <nav class="menu" id="menu">
+      <a data-r="dashboard"><span class="i">📊</span>Dashboard</a>
+      <a data-r="sources"><span class="i">📡</span>Sources</a>
+      <a data-r="raw"><span class="i">📰</span>Raw Statements</a>
+      <a data-r="alerts"><span class="i">🔔</span>Alerts</a>
+      <a data-r="settings"><span class="i">⚙️</span>Settings</a>
+    </nav>
+    <div class="side-foot"><span class="live"><span class="dot"></span>LIVE</span><div id="connState" style="margin-top:6px">connecting…</div></div>
+  </aside>
+  <main>
+    <div class="topbar"><span id="crumb">Dashboard</span><span id="updated">—</span></div>
+    <div class="page" id="page"><div class="empty"><span class="spin"></span> Connecting to backend…</div></div>
+  </main>
+</div>
+<div class="ov" id="ov" onclick="if(event.target===this)closeModal()"><div class="modal"><div class="mh"><b id="ovTitle">Detail</b><span class="x" onclick="closeModal()">✕</span></div><div class="mb" id="ovBody"></div></div></div>
+
+<script>
+// ───────────── API client (same-origin, auto-login) ─────────────
+const API = location.origin; // backend serves this page → same origin, no CORS
+const CREDS = { email: 'web@trumptrading.local', password: 'web-dashboard-2026!', displayName: 'Web Dashboard' };
+let TOKEN = localStorage.getItem('tt_web_token') || '';
+
+async function rawCall(method, path, body, withAuth) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (withAuth && TOKEN) headers['Authorization'] = 'Bearer ' + TOKEN;
+  const res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const text = await res.text();
+  let data; try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+  return { ok: res.ok, status: res.status, data };
+}
+async function ensureAuth() {
+  if (TOKEN) { const h = await rawCall('GET', '/health', null, false); if (h.ok) { const t = await rawCall('GET','/settings/status',null,true); if (t.ok) return true; } }
+  // login, else register then login
+  let r = await rawCall('POST', '/auth/login', CREDS);
+  if (!r.ok) { await rawCall('POST', '/auth/register', CREDS); r = await rawCall('POST', '/auth/login', CREDS); }
+  if (r.ok && r.data.accessToken) { TOKEN = r.data.accessToken; localStorage.setItem('tt_web_token', TOKEN); return true; }
+  return false;
+}
+async function api(path) {
+  let r = await rawCall('GET', path, null, true);
+  if (r.status === 401) { TOKEN = ''; await ensureAuth(); r = await rawCall('GET', path, null, true); }
+  if (!r.ok) throw new Error('HTTP ' + r.status + (r.data && r.data.message ? ' — ' + r.data.message : ''));
+  return r.data;
+}
+async function apiPost(path, body) {
+  let r = await rawCall('POST', path, body || {}, true);
+  if (r.status === 401) { TOKEN=''; await ensureAuth(); r = await rawCall('POST', path, body||{}, true); }
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.data;
+}
+
+// ───────────── helpers ─────────────
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function cairo(d){if(!d)return '—';return new Date(d).toLocaleString('en-US',{timeZone:'Africa/Cairo',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false})+' Cairo'}
+function rel(d){if(!d)return '';const m=Math.floor((Date.now()-new Date(d))/60000);if(isNaN(m))return '';if(m<1)return'just now';if(m<60)return m+'m ago';const h=Math.floor(m/60);if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago'}
+function riskColor(r){return{Critical:'#E53935',High:'#FB8C00',Medium:'#FDD835',Low:'#66BB6A'}[r]||'#3D8BFD'}
+function dirCls(d){return{positive:'pos',negative:'neg',mixed:'mix'}[d]||'unc'}
+const $=id=>document.getElementById(id);
+
+// ───────────── router ─────────────
+const State = { route:'dashboard', loading:false };
+function go(r){location.hash=r}
+window.addEventListener('hashchange', route);
+function route(){
+  const h = location.hash.replace('#','') || 'dashboard';
+  const [base, arg] = h.split('/');
+  State.route = base;
+  document.querySelectorAll('#menu a').forEach(a=>a.classList.toggle('on', a.dataset.r===base));
+  $('crumb').textContent = ({dashboard:'Dashboard',sources:'Sources',raw:'Raw Statements',alerts:'Alerts',settings:'Settings'})[base]||base;
+  if(base==='alert' && arg){ openAlert(arg); return; }
+  render();
+}
+
+const Pages = {};
+async function render(){
+  const el=$('page'); el.innerHTML='<div class="empty"><span class="spin"></span> Loading…</div>';
+  try{ await Pages[State.route](el); }
+  catch(e){ el.innerHTML='<div class="banner">Error loading this page: '+esc(e.message)+'</div>'; }
+}
+
+// ───────────── Dashboard ─────────────
+Pages.dashboard = async (el) => {
+  const d = await api('/dashboard');
+  $('updated').textContent = 'updated '+new Date().toLocaleTimeString('en-US',{timeZone:'Africa/Cairo',hour12:false})+' Cairo';
+  const meterColor = d.riskMeter>=70?'#E53935':d.riskMeter>=50?'#FB8C00':d.riskMeter>=30?'#FDD835':'#66BB6A';
+  const meterLbl = d.riskMeter>=70?'ELEVATED':d.riskMeter>=50?'HEIGHTENED':d.riskMeter>=30?'MODERATE':'CALM';
+  const maxSec=(d.topSectors[0]||{}).count||1, maxTk=(d.topTickers[0]||{}).count||1;
+  const ts=d.truthSocial;
+  el.innerHTML =
+    '<div class="ptitle">Dashboard</div><div class="psub">Real ingested data · '+cairo(new Date())+'</div>'+
+    '<div class="grid g5">'+
+      stat(d.sources.connected,'Sources up','var(--low)')+
+      stat(d.sources.failed,'Sources failed','var(--critical)')+
+      stat(d.rawStatements.today,'Raw today')+
+      stat(d.processedAlerts.today,'Alerts today')+
+      stat(d.highCriticalAlerts,'High/Critical','var(--high)')+
+    '</div>'+
+    '<div class="grid g2" style="margin-top:14px">'+
+      '<div class="card meter"><div class="top"><b>Market Risk Meter</b><span class="score" style="color:'+meterColor+'">'+d.riskMeter+'</span></div>'+
+        '<div class="track"><div class="fill" style="width:'+d.riskMeter+'%;background:'+meterColor+'"></div></div>'+
+        '<div class="lbls"><span>Calm</span><span style="color:'+meterColor+';font-weight:700">'+meterLbl+'</span><span>Critical</span></div></div>'+
+      '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><b>Truth Social</b><span class="pill st-'+(ts.status==='connected'?'connected':'blocked')+'">'+ts.status.toUpperCase()+'</span></div>'+
+        '<div style="font-size:11px;color:var(--text2);margin-top:8px;line-height:1.5">'+esc(ts.reason)+'</div>'+
+        (ts.sample?'<div class="quote" style="margin-top:10px;font-size:12px">"'+esc(ts.sample.content)+'"<div style="font-style:normal;color:var(--text2);font-size:10px;margin-top:6px">'+cairo(ts.sample.statedAt)+'</div></div>':'')+'</div>'+
+    '</div>'+
+    '<div class="sec">Top affected sectors</div>'+(d.topSectors.length?d.topSectors.map(s=>bar(esc(s.sector),s.count,maxSec)).join(''):'<div class="empty">No sector data yet.</div>')+
+    '<div class="sec">Most mentioned tickers</div>'+(d.topTickers.length?d.topTickers.map(t=>bar('<span class="tk">'+esc(t.ticker)+'</span>',t.count,maxTk)).join(''):'<div class="empty">No ticker data yet.</div>')+
+    '<div class="sec">Latest alerts</div>'+(d.latestAlerts.length?d.latestAlerts.map(alertRow).join(''):'<div class="empty">No alerts yet — the scheduler is still ingesting.</div>');
+};
+function stat(v,l,c){return '<div class="card stat"><div class="v"'+(c?' style="color:'+c+'"':'')+'>'+v+'</div><div class="l">'+l+'</div></div>'}
+function bar(label,count,max){return '<div class="bar"><div class="bl">'+label+'</div><div class="bt"><div class="bf" style="width:'+(count/max*100)+'%"></div></div><div class="bc">'+count+'</div></div>'}
+function alertRow(a){
+  return '<div class="row" onclick="go(\'alert/'+a.id+'\')"><div class="head"><div class="title">'+esc(a.title||a.summary)+'</div><span class="pill '+a.riskLevel+'">'+a.riskLevel+'</span></div>'+
+    '<div class="meta">'+esc(a.sourceName)+' · '+(a.categories||[]).slice(0,3).map(esc).join(', ')+' · '+(a.confirmed?'✓ confirmed':'○ unconfirmed')+' · 🕐 '+rel(a.statedAt||a.createdAt)+'</div>'+
+    ((a.tickers&&a.tickers.length)?'<div style="margin-top:6px">'+a.tickers.slice(0,6).map(t=>'<span class="tk">'+esc(t)+'</span>').join('')+'</div>':'')+'</div>';
+}
+
+// ───────────── Sources ─────────────
+Pages.sources = async (el) => {
+  const { sources } = await api('/sources/status');
+  const conn=sources.filter(s=>s.status==='connected').length, fail=sources.filter(s=>['failed','blocked'].includes(s.status)).length;
+  const GROUPS=['truth_social_direct','official','market','general','geopolitical','truth_social_news'];
+  const label={truth_social_direct:'Truth Social (Direct)',official:'Official Government',market:'Market & Financial News',general:'General News',geopolitical:'International / Geopolitical',truth_social_news:'Truth Social via News'};
+  let html='<div class="ptitle">Sources</div><div class="psub">'+conn+' connected · '+fail+' failed · '+sources.length+' total — fetched server-side (no browser proxies)</div>';
+  const order=GROUPS.concat([...new Set(sources.map(s=>s.group))].filter(g=>!GROUPS.includes(g)));
+  for(const g of order){const list=sources.filter(s=>s.group===g);if(!list.length)continue;
+    html+='<div class="sec">'+esc(label[g]||g)+'</div>'+list.map(srcRow).join('');}
+  el.innerHTML=html;
+};
+function srcRow(s){
+  const dupes=Math.max(0,Number(s.lastItemCount||0)-Number(s.lastNewCount||0));
+  return '<div class="card" style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px">'+
+    '<div><b>'+esc(s.name)+'</b> '+(s.kind==='direct_official'?'<span class="tk">OFFICIAL</span>':'')+'<div style="font-size:10px;color:var(--text2)">'+esc(s.type)+' · reliability '+s.reliabilityScore+'/100</div></div>'+
+    '<div style="display:flex;gap:8px;align-items:center"><span class="pill st-'+s.status+'">'+s.status.replace('_',' ').toUpperCase()+'</span>'+
+    '<button class="btn" onclick="retry(\''+s.id+'\',this)">↻ Retry</button></div></div>'+
+    '<div style="font-size:11px;color:var(--text)'+(s.status==='connected'?';color:var(--low)':';color:var(--medium)')+';margin-top:8px">'+esc(s.reason)+'</div>'+
+    '<div class="src-grid"><div>HTTP: <b>'+(s.lastHttpStatus||'—')+'</b></div><div>Fetched: <b>'+(s.lastItemCount||0)+'</b></div><div>Inserted: <b>'+(s.lastNewCount||0)+'</b></div>'+
+    '<div>Duplicates: <b>'+dupes+'</b></div><div>Latency: <b>'+(s.avgLatencyMs||0)+'ms</b></div><div>Polls: <b>'+(s.pollCount||0)+'</b></div>'+
+    '<div>Last poll: <b>'+rel(s.lastPollAt)+'</b></div><div>Last success: <b>'+rel(s.lastSuccessAt)+'</b></div><div>Errors: <b>'+(s.errorCount||0)+'</b></div></div></div>';
+}
+async function retry(id,btn){btn.disabled=true;btn.textContent='…';try{const r=await apiPost('/sources/'+id+'/retry');await render();}catch(e){btn.textContent='failed';}}
+
+// ───────────── Raw Statements ─────────────
+Pages.raw = async (el) => {
+  const { items } = await api('/raw-statements?limit=50');
+  el.innerHTML='<div class="ptitle">Raw Statements</div><div class="psub">'+items.length+' most recent · verbatim ingested text</div>'+
+    (items.length?items.map(rawRow).join(''):'<div class="empty">No raw statements yet.</div>');
+};
+function rawRow(r){
+  const badge=r.processed?'<span class="pill st-connected">PROCESSED</span>':r.status==='duplicate'?'<span class="pill st-no_items">DUPLICATE</span>':'<span class="pill st-pending">'+r.status.toUpperCase()+'</span>';
+  return '<div class="row" onclick="openRaw(\''+r.id+'\')"><div class="head"><div class="title" style="font-size:13px">'+esc((r.content||'').slice(0,160))+'</div>'+badge+'</div>'+
+    '<div class="meta">'+esc(r.sourceName)+' · 🕐 '+rel(r.statedAt)+' · '+cairo(r.statedAt)+(r.externalId?' · id '+esc(String(r.externalId).slice(0,24)):'')+'</div></div>';
+}
+async function openRaw(id){
+  openModal('Raw Statement','<div class="empty"><span class="spin"></span></div>');
+  const { statement:s } = await api('/raw-statements/'+id);
+  $('ovBody').innerHTML=
+    drow('Original text','<div class="quote">'+esc(s.content)+'</div>')+
+    drow('Source', esc(s.sourceName)+' ('+esc(s.sourceKey)+') · group '+esc(s.sourceGroup))+
+    drow('Status', (s.processed?'Processed into an alert':s.status)+' · confidence '+s.confidenceScore+' · confirmations '+s.confirmationCount)+
+    drow('Timestamp', cairo(s.statedAt)+' · detected '+cairo(s.detectedAt))+
+    drow('URL','<a href="'+esc(s.sourceUrl)+'" target="_blank">'+esc(s.sourceUrl)+'</a>')+
+    drow('External / Article ID', esc(s.externalId||'—'))+
+    drow('Content hash', '<span style="font-size:10px;font-family:monospace;color:var(--text2)">'+esc(s.contentHash)+'</span>')+
+    drow('Raw metadata (JSON)','<div class="json">'+esc(JSON.stringify(s.metadata,null,2))+'</div>');
+}
+
+// ───────────── Alerts ─────────────
+let alertFilter='all';
+Pages.alerts = async (el) => {
+  const { alerts } = await api('/alerts?limit=60');
+  const list = alertFilter==='all'?alerts:alerts.filter(a=>a.riskLevel===alertFilter);
+  el.innerHTML='<div class="ptitle">Alerts</div><div class="psub">'+alerts.length+' market-relevant alerts (Medium+) · newest first</div>'+
+    '<div class="tabbar">'+['all','Critical','High','Medium'].map(r=>'<span class="tab '+(alertFilter===r?'on':'')+'" onclick="setAlertFilter(\''+r+'\')">'+(r==='all'?'All':r)+'</span>').join('')+'</div>'+
+    (list.length?list.map(fullAlertRow).join(''):'<div class="empty">No alerts for this filter.</div>');
+};
+function setAlertFilter(r){alertFilter=r;render();}
+function fullAlertRow(a){
+  return '<div class="row" onclick="go(\'alert/'+a.id+'\')"><div class="head"><div class="title">'+esc(a.title||a.summary)+'</div><span class="pill '+a.riskLevel+'">'+a.riskLevel+'</span></div>'+
+    '<div class="meta">'+esc(a.sourceName)+' · '+(a.categories||[]).slice(0,3).map(esc).join(', ')+' · '+(a.isConfirmed||a.confirmed?'✓ confirmed':'○ unconfirmed')+' · urgency '+a.urgencyScore+' · 🕐 '+rel(a.statedAt||a.createdAt)+'</div>'+
+    '<div style="font-size:12.5px;color:var(--text2);margin-top:7px;line-height:1.5">'+esc((a.summary||'').slice(0,200))+'</div>'+
+    ((a.tickers&&a.tickers.length)?'<div style="margin-top:7px">'+a.tickers.slice(0,8).map(t=>'<span class="tk">'+esc(t)+'</span>').join('')+'</div>':'')+'</div>';
+}
+
+// ───────────── Alert detail ─────────────
+async function openAlert(id){
+  $('crumb').textContent='Alert detail';
+  openModal('Alert detail','<div class="empty"><span class="spin"></span></div>');
+  let data; try{ data = await api('/alerts/'+id); }catch(e){ $('ovBody').innerHTML='<div class="banner">'+esc(e.message)+'</div>'; return; }
+  const a=data.alert;
+  const stocks=(a.affected_assets||[]).filter(x=>x.asset_type==='stock');
+  const etfs=(a.affected_etfs||[]);
+  $('ovTitle').innerHTML=esc(a.title||'Alert')+' <span class="pill '+a.riskLevel+'">'+a.riskLevel+'</span>';
+  $('ovBody').innerHTML=
+    drow('Original statement','<div class="quote">'+esc(a.originalStatement||a.summary)+'</div>'+(a.sourceUrl?'<a href="'+esc(a.sourceUrl)+'" target="_blank" style="font-size:12px">Open source ↗</a>':''))+
+    drow('Summary', esc(a.summary))+
+    drow('Why it may move markets', esc(a.market_impact_summary||a.reasoning||'—'))+
+    drow('Categories', (a.categories||[]).map(c=>'<span class="chip">'+esc(c)+'</span>').join('')||'—')+
+    (stocks.length?drow('Affected stocks', stocks.map(s=>'<div class="mi-line '+dirCls(s.possible_impact)+'"><span class="tk">'+esc(s.symbol)+'</span> '+esc(s.name)+' — possible '+esc(s.possible_impact)+' ('+s.confidence+'%)</div>').join('')):'')+
+    (etfs.length?drow('Affected ETFs', etfs.map(s=>'<span class="tk">'+esc(s.symbol)+'</span>').join(' ')):'')+
+    drow('Affected sectors', (a.affectedSectors||[]).map(s=>'<span class="chip">'+esc(s)+'</span>').join('')||'—')+
+    drow('Source confidence / verification', 'Reliability '+(a.sourceReliability||'—')+'/100 · '+((a.isConfirmed||a.confirmed)?'✓ confirmed by '+((a.confirmationCount||0)+1)+' source(s)':'○ unconfirmed (single source)'))+
+    drow('Notification preview','<div class="card" style="padding:11px"><b style="font-size:13px">'+esc(a.title||'')+'</b><div style="font-size:12px;color:var(--text2);margin-top:4px">'+esc(a.notificationBody||a.summary||'')+'</div></div>')+
+    drow('Detected', cairo(a.statedAt||a.createdAt));
+}
+function drow(l,v){return '<div class="drow"><div class="dl">'+l+'</div><div>'+v+'</div></div>'}
+function openModal(t,b){$('ovTitle').textContent=t;$('ovBody').innerHTML=b;$('ov').classList.add('open')}
+function closeModal(){$('ov').classList.remove('open');if(State.route==='alert')history.back()}
+
+// ───────────── Settings ─────────────
+Pages.settings = async (el) => {
+  const s = await api('/settings/status');
+  const on=s.sources.filter(x=>x.enabled).length;
+  el.innerHTML='<div class="ptitle">Settings</div><div class="psub">Backend configuration &amp; environment</div>'+
+    '<div class="grid g3">'+
+      stat(s.polling.schedulerEnabled?'ON':'OFF','Scheduler',s.polling.schedulerEnabled?'var(--low)':'var(--text2)')+
+      stat(s.polling.schedulerIntervalSeconds+'s','Poll interval')+
+      stat(on+'/'+s.sources.length,'Sources enabled')+
+    '</div>'+
+    '<div class="sec">API keys</div><div class="card">'+
+      kv('Anthropic (AI analysis)', s.apiKeys.anthropic)+kv('NewsAPI', s.apiKeys.newsApi)+kv('Firebase (push)', s.apiKeys.firebase)+'</div>'+
+    '<div class="sec">Environment</div><div class="card">'+
+      kv('NODE_ENV', s.environment.nodeEnv)+kv('Node', s.environment.node)+kv('Dedupe window', s.environment.dedupeWindowHours+'h')+kv('Dedupe similarity', s.environment.dedupeSimilarity)+'</div>'+
+    '<div class="sec">Sources ('+on+' enabled / '+s.sources.length+')</div><div class="card">'+
+      s.sources.map(x=>kv(esc(x.name), (x.requiresKey?'requires key · ':'')+(x.enabled?'enabled':'disabled')+' · every '+x.pollSeconds+'s')).join('')+'</div>'+
+    '<div class="banner" style="margin-top:18px">⚠️ '+esc(s.disclaimer)+'</div>';
+};
+function kv(k,v){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">'+k+'</span><span>'+v+'</span></div>'}
+
+// ───────────── boot ─────────────
+document.querySelectorAll('#menu a').forEach(a=>a.onclick=()=>go(a.dataset.r));
+(async()=>{
+  const ok = await ensureAuth();
+  $('connState').textContent = ok ? '✓ backend connected' : '✗ backend unreachable';
+  if(!ok){ $('page').innerHTML='<div class="banner">Could not connect/authenticate to the backend API. Is the server running and the database up?</div>'; return; }
+  route();
+  setInterval(()=>{ if(['dashboard','sources'].includes(State.route)) render(); }, 60000);
+})();
+</script>
+</body>
+</html>

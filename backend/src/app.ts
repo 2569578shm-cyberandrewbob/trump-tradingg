@@ -3,6 +3,9 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import { ZodError } from 'zod';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { env } from './config/env.js';
 import { AppError } from './lib/errors.js';
 import { redis } from './queue/queues.js';
@@ -13,11 +16,18 @@ import { prefsRoutes } from './modules/prefs/routes.js';
 import { sourceRoutes } from './modules/sources/routes.js';
 import { adminRoutes } from './modules/admin/routes.js';
 import { healthRoutes } from './modules/health/routes.js';
+import { webDataRoutes } from './modules/webdata/routes.js';
+
+const WEB_DIR = join(dirname(fileURLToPath(import.meta.url)), '../web');
 
 export async function buildApp() {
   const app = Fastify({ logger: { level: env.LOG_LEVEL } });
 
-  await app.register(helmet);
+  // CSP disabled: this server also serves a single-file dashboard with inline
+  // scripts, inline event handlers, and same-origin http fetches. The default
+  // CSP (script-src-attr 'none' + upgrade-insecure-requests) breaks all of
+  // those on http://localhost. Other Helmet headers stay on.
+  await app.register(helmet, { contentSecurityPolicy: false });
   await app.register(cors, { origin: true });
   await app.register(rateLimit, {
     max: 120,
@@ -51,6 +61,7 @@ export async function buildApp() {
   await app.register(sourceRoutes);
   await app.register(adminRoutes);
   await app.register(healthRoutes);
+  await app.register(webDataRoutes); // /dashboard, /raw-statements, /settings/status
 
   // /api/ prefixed versions for backward/forward compatibility.
   await app.register(authRoutes, { prefix: '/api' });
@@ -60,23 +71,27 @@ export async function buildApp() {
   await app.register(sourceRoutes, { prefix: '/api' });
   await app.register(adminRoutes, { prefix: '/api' });
   await app.register(healthRoutes, { prefix: '/api' });
-
-  // Convenience aliases (paths NOT already declared by a module).
-  app.get('/dashboard', (_req, reply) => reply.redirect('/alerts/dashboard'));
-  app.get('/api/dashboard', (_req, reply) => reply.redirect('/api/alerts/dashboard'));
-  app.get('/sources/status', (_req, reply) => reply.redirect('/sources'));
-  app.get('/api/sources/status', (_req, reply) => reply.redirect('/api/sources'));
+  await app.register(webDataRoutes, { prefix: '/api' });
 
   const AVAILABLE_ENDPOINTS = [
-    '/health', '/dashboard', '/feed', '/alerts', '/alerts/dashboard', '/alerts/high-impact',
-    '/sources', '/sources/status', '/market-impact', '/assets/affected',
-    '/watchlist', '/notification-preferences', '/legal/disclaimer',
-    '/api/health', '/api/dashboard', '/api/feed', '/api/alerts', '/api/sources', '/api/sources/status',
-    '/api/market-impact', '/api/assets/affected',
+    '/health', '/dashboard', '/feed', '/alerts', '/alerts/:id', '/alerts/high-impact',
+    '/alerts/by-ticker/:ticker', '/alerts/by-category/:category',
+    '/sources', '/sources/status', '/sources/:id/retry', '/raw-statements', '/raw-statements/:id',
+    '/market-impact', '/assets/affected', '/settings/status', '/legal/disclaimer',
+    '/api/* (prefixed versions of all above)',
   ];
 
-  // Route index.
-  app.get('/', async () => ({ ok: true, service: 'trump-trading-api', available_endpoints: AVAILABLE_ENDPOINTS }));
+  // Serve the web dashboard SPA at the root (same-origin → no CORS, no proxies).
+  const serveSpa = (_req: unknown, reply: { type: (t: string) => { send: (b: string) => void } }) => {
+    try {
+      reply.type('text/html').send(readFileSync(join(WEB_DIR, 'index.html'), 'utf8'));
+    } catch {
+      reply.type('text/html').send('<h1>Trump Trading</h1><p>Web dashboard not built. See backend/web/index.html.</p>');
+    }
+  };
+  app.get('/', serveSpa);
+  app.get('/app', serveSpa);
+  // Machine-readable route index.
   app.get('/api', async () => ({ ok: true, service: 'trump-trading-api', available_endpoints: AVAILABLE_ENDPOINTS }));
 
   // JSON 404 (instead of plain "Not Found") so the app can show a useful error.
