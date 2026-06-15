@@ -391,7 +391,7 @@ function parseXmlItems(text) {
   });
 }
 async function fetchVia(proxy, url) {
-  const r = await fetch(proxy.build(url), { signal: AbortSignal.timeout(9000) });
+  const r = await fetch(proxy.build(url), { signal: AbortSignal.timeout(7000) });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   if (proxy.kind === 'json') {
     const d = await r.json();
@@ -423,21 +423,28 @@ function proxyOrder() {
 }
 async function fetchFeed(feed, attempt) {
   attempt = attempt || 0;
-  await sleep(Math.random() * 350); // jitter so requests don't burst together
+  if (attempt > 0) await sleep(700 + Math.random() * 600);
   let lastErr = '';
   for (const p of proxyOrder()) {
     try { const items = await fetchVia(p, feed.url); return { feed, items, status: items.length ? 'connected' : 'no-items' }; }
     catch(e) { lastErr = (e && e.message) || 'error'; }
   }
-  // Retry the whole chain up to 2 more times — proxy rate-limits are transient.
-  if (attempt < 2) { await sleep(900 + Math.random() * 900); return fetchFeed(feed, attempt + 1); }
+  // One transient retry — keep the budget small so the feed never blocks the UI.
+  if (attempt < 1) return fetchFeed(feed, attempt + 1);
   return { feed, items: [], status: 'failed', error: lastErr };
 }
-// Limited-concurrency map so we don't hammer the proxies (which itself causes 503s).
-async function poolMap(arr, n, fn) {
+// Limited-concurrency map; calls onResult(result, index) as EACH feed settles so
+// the UI can render progressively instead of waiting for every feed.
+async function poolMap(arr, n, fn, onResult) {
   const out = new Array(arr.length);
   let i = 0;
-  async function worker() { while (i < arr.length) { const idx = i++; out[idx] = await fn(arr[idx]); } }
+  async function worker() {
+    while (i < arr.length) {
+      const idx = i++;
+      out[idx] = await fn(arr[idx]);
+      if (onResult) { try { onResult(out[idx], idx); } catch (e) {} }
+    }
+  }
   await Promise.all(Array.from({ length: Math.min(n, arr.length) }, worker));
   return out;
 }
@@ -455,38 +462,17 @@ const State = {
 function saveWatchlist() { localStorage.setItem('tt_watchlist', JSON.stringify(State.watchlist)); }
 
 // ============================ LOAD ============================
-async function loadFeeds() {
-  State.loading = true;
-  renderRefreshBar();
-
-  // Poll the full catalog with low concurrency (3 at a time) to stay under the
-  // free CORS-proxy rate limits.
-  let results = await poolMap(SOURCES, 3, (f) => fetchFeed(f, 0));
-  // Second pass: re-poll any that still failed (transient proxy throttling).
-  const failedIdx = results.map((r, i) => r.status === 'failed' ? i : -1).filter(i => i >= 0);
-  if (failedIdx.length) {
-    await sleep(1200);
-    const retried = await poolMap(failedIdx.map(i => SOURCES[i]), 2, (f) => fetchFeed(f, 0));
-    failedIdx.forEach((idx, k) => { if (retried[k] && retried[k].status !== 'failed') results[idx] = retried[k]; });
-  }
-  State.feedHealth = results.map(r => ({ name: r.feed.name, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error }));
-
-  let items = results.reduce((acc, r) => acc.concat(r.items), []);
-  // Prefer Trump-relevant items; if very few, keep everything (wars/markets fill in).
+// Turn accumulated raw feed items into enriched, deduped, sorted alerts.
+function buildAlertsFrom(rawItems) {
+  let items = rawItems;
   const trumpItems = items.filter(it => /trump|white house|president|tariff|maga|mar-a-lago|administration/i.test(it.title + it.summary));
   State.usingFallback = trumpItems.length < 3;
   if (!State.usingFallback) items = trumpItems;
 
-  if (!items.length) {
-    State.error = 'Could not reach any news feeds. Check your internet connection or try Refresh.';
-    State.loading = false; State.lastUpdated = new Date(); render(); return;
-  }
-  State.error = null;
-
   const seen = new Set();
   items = items.filter(it => { const k = it.title.toLowerCase().slice(0,60); if (seen.has(k)) return false; seen.add(k); return true; });
 
-  State.alerts = items.map((it,i) => {
+  State.alerts = items.map((it, i) => {
     const txt = it.title + ' ' + it.summary;
     const risk = classify(txt);
     return {
@@ -499,8 +485,39 @@ async function loadFeeds() {
       category: category(txt),
       confirmed: isConfirmed(it.source),
     };
-  }).sort((a,b) => b.pubDate - a.pubDate).slice(0, 60);
+  }).sort((a, b) => b.pubDate - a.pubDate).slice(0, 60);
+}
 
+let loadJobId = 0;
+async function loadFeeds() {
+  const job = ++loadJobId;            // cancels stale renders if a newer load starts
+  State.loading = true;
+  State.error = null;
+  renderRefreshBar();
+
+  const acc = [];
+  const health = SOURCES.map(s => ({ name: s.name, group: s.group, kind: s.kind, status: 'pending', count: 0 }));
+  State.feedHealth = health;
+  let lastRender = 0;
+
+  // Poll the full catalog (4 at a time) and render progressively as each feed
+  // arrives — content shows up immediately instead of waiting for all 30+ feeds.
+  await poolMap(SOURCES, 4, (f) => fetchFeed(f, 0), (r, idx) => {
+    if (job !== loadJobId) return;
+    health[idx] = { name: r.feed.name, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error };
+    if (r.items.length) for (const it of r.items) acc.push(it);
+    const now = Date.now();
+    if (now - lastRender > 300) {
+      lastRender = now;
+      buildAlertsFrom(acc);
+      State.lastUpdated = new Date();
+      render();
+    }
+  });
+
+  if (job !== loadJobId) return;       // a newer refresh superseded this one
+  buildAlertsFrom(acc);
+  State.error = acc.length ? null : 'Could not reach any news feeds. Check your internet connection or try Refresh.';
   State.lastUpdated = new Date();
   State.loading = false;
   render();
