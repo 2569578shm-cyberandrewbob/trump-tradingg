@@ -1,0 +1,52 @@
+# Reference config for deploying on Koyeb (free tier, no credit card).
+# Koyeb does not auto-read this file — use it as a checklist when creating the
+# service in the Koyeb dashboard, or with the Koyeb CLI (see docs/deploy-free.md).
+#
+# Koyeb CLI equivalent:
+#   koyeb service create trump-trading \
+#     --app trump-trading \
+#     --git github.com/2569578shm-cyberandrewbob/trump-tradingg \
+#     --git-branch master \
+#     --git-build-command "" \
+#     --git-workdir backend \
+#     --docker-dockerfile Dockerfile \
+#     --ports 8080:http \
+#     --routes /:8080 \
+#     --health-checks 8080:http:/health \
+#     --instance-type free \
+#     --env PORT=8080 \
+#     --env NODE_ENV=production \
+#     --env RUN_SCHEDULER=true \
+#     --env FREE_TIER_MODE=true \
+#     --env DATABASE_URL=@DATABASE_URL \
+#     --env JWT_ACCESS_SECRET=@JWT_ACCESS_SECRET \
+#     --env JWT_REFRESH_SECRET=@JWT_REFRESH_SECRET
+
+service:
+  name: trump-trading
+  workdir: backend
+  dockerfile: backend/Dockerfile
+  instance_type: free        # Koyeb free "nano" instance
+  region: fra                # Frankfurt (closest to Cairo)
+  ports:
+    - port: 8080
+      protocol: http
+  routes:
+    - path: /
+      port: 8080
+  health_check:
+    http:
+      path: /health
+      port: 8080
+  env:
+    - { key: PORT, value: "8080" }
+    - { key: NODE_ENV, value: "production" }
+    - { key: RUN_SCHEDULER, value: "true" }
+    - { key: FREE_TIER_MODE, value: "true" }        # 10-min polling, Redis-free
+    # REDIS_URL intentionally omitted → app runs Redis-free (DB-only dedupe).
+    # Set these as SECRETS in the Koyeb dashboard:
+    - { key: DATABASE_URL, secret: true }           # Neon free Postgres URL (?sslmode=require)
+    - { key: JWT_ACCESS_SECRET, secret: true }
+    - { key: JWT_REFRESH_SECRET, secret: true }
+    # Optional:
+    # - { key: ANTHROPIC_API_KEY, secret: true }    # else rules classifier is used

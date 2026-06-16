@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { env } from './config/env.js';
 import { AppError } from './lib/errors.js';
-import { redis } from './queue/queues.js';
+import { redis, redisEnabled } from './queue/queues.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { alertRoutes } from './modules/alerts/routes.js';
 import { watchlistRoutes } from './modules/watchlist/routes.js';
@@ -32,7 +32,8 @@ export async function buildApp() {
   await app.register(rateLimit, {
     max: 120,
     timeWindow: '1 minute',
-    redis,
+    // Use Redis when configured; otherwise fall back to in-memory (free tier).
+    ...(redisEnabled ? { redis } : {}),
     keyGenerator: (req) => (req.headers.authorization ?? req.ip),
   });
 

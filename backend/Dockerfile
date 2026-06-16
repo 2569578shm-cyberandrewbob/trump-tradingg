@@ -17,5 +17,7 @@ RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
 COPY seeds ./seeds
+COPY web ./web
 EXPOSE 8080
-CMD ["node", "dist/index.js"]
+# Run idempotent migrations + seed, then start the API + in-process scheduler.
+CMD ["sh", "-c", "node dist/db/migrate.js && node dist/db/seed.js && node dist/index.js"]

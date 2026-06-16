@@ -6,7 +6,11 @@ const schema = z.object({
   PORT: z.coerce.number().default(8080),
   LOG_LEVEL: z.string().default('info'),
   DATABASE_URL: z.string().url(),
-  REDIS_URL: z.string().url().default('redis://localhost:6379'),
+  // Optional: leave empty to run Redis-free (DB-only dedupe + in-memory rate
+  // limiting). Recommended for free tiers — see docs/deploy-free.md.
+  REDIS_URL: z.string().optional(),
+  // Free-tier mode: longer polling intervals, gentler on provider quotas.
+  FREE_TIER_MODE: z.string().optional(),
   JWT_ACCESS_SECRET: z.string().min(16),
   JWT_REFRESH_SECRET: z.string().min(16),
   JWT_ACCESS_TTL: z.string().default('15m'),
@@ -31,3 +35,5 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 export const isProd = env.NODE_ENV === 'production';
+export const isFreeTier = env.FREE_TIER_MODE === 'true';
+export const redisEnabled = !!env.REDIS_URL && env.REDIS_URL.trim() !== '' && env.REDIS_URL !== 'disabled';

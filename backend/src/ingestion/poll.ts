@@ -155,10 +155,12 @@ export async function loadEnabledSources(): Promise<SourceRow[]> {
 export async function pollDue(opts: { enqueue?: boolean } = {}): Promise<PollResult[]> {
   const sources = await loadEnabledSources();
   const now = Date.now();
+  // Free tier: enforce a minimum 10-minute gap per source to conserve quota.
+  const minGapMs = process.env.FREE_TIER_MODE === 'true' ? 600_000 : 0;
   const results: PollResult[] = [];
   for (const src of sources) {
     const last = lastPolled.get(src.key) ?? 0;
-    if (now - last < src.poll_seconds * 1000) continue;
+    if (now - last < Math.max(src.poll_seconds * 1000, minGapMs)) continue;
     lastPolled.set(src.key, now);
     results.push(await pollSource(src, opts));
   }

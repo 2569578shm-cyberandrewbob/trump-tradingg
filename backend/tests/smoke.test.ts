@@ -36,7 +36,8 @@ describe.skipIf(!enabled)('Smoke: core endpoints', async () => {
     const body = res.json();
     expect(body.ok).toBe(true);
     expect(body.checks.db).toBe('ok');
-    expect(body.checks.redis).toBe('ok');
+    // Redis is optional: 'ok' when configured, 'disabled' when running Redis-free.
+    expect(['ok', 'disabled']).toContain(body.checks.redis);
   });
 
   it('GET /sources lists at least 10 sources with group + kind + status', async () => {

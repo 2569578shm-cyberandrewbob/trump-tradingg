@@ -13,9 +13,11 @@ try {
 }
 
 // Free single-instance hosting has no background workers — run ingestion +
-// analysis in-process on a timer when RUN_SCHEDULER is set.
+// analysis in-process on a timer when RUN_SCHEDULER is set. Free-tier mode
+// defaults to a gentler 10-minute interval to stay within provider quotas.
 if (process.env.RUN_SCHEDULER === 'true') {
-  const seconds = Number(process.env.SCHEDULER_INTERVAL_SECONDS) || 90;
+  const freeTier = process.env.FREE_TIER_MODE === 'true';
+  const seconds = Number(process.env.SCHEDULER_INTERVAL_SECONDS) || (freeTier ? 600 : 90);
   startScheduler(seconds * 1000);
 }
 
