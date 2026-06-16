@@ -461,7 +461,7 @@ async function poolMap(arr, n, fn, onResult) {
 // ============================ STATE ============================
 const State = {
   alerts: [], feedHealth: [], usingFallback: false,
-  route: location.hash.replace('#','') || 'dashboard',
+  route: location.hash.replace('#','') || 'portfolio',
   riskFilter: 'all', categoryFilter: null, search: '',
   feedLimit: 25,
   watchlist: JSON.parse(localStorage.getItem('tt_watchlist') || '["OIL","SPY","DXY"]'),
@@ -469,6 +469,257 @@ const State = {
   refreshMs: parseInt(localStorage.getItem('tt_refresh') || '120000'),
 };
 function saveWatchlist() { localStorage.setItem('tt_watchlist', JSON.stringify(State.watchlist)); }
+
+// ============================================================================
+//  PERSONAL PORTFOLIO NEWS RADAR  (browser-side; swap fetchFeed→backend later)
+// ============================================================================
+const DEFAULT_PORTFOLIO = ['SPCX','DRAM','MU','SNDK','QCOM','AMZN','AAOI','BWXT','AMAT','IONQ','NBIS','RKLB','ORCL','ASTS','TSM','ASML','AMD'];
+// ticker → { name, search query phrase, sectors, regex of mentions, verify flag, note }
+const COMPANY = {
+  SPCX: { name:'SPAC and New Issue ETF', search:'"SPAC and New Issue ETF" OR SPCX ETF', sectors:['ETFs/Other'], re:/\bSPCX\b|SPAC and New Issue/i, verify:true, note:'ETF — verify ticker is still listed (Tuttle SPCX).' },
+  DRAM: { name:'DRAM (memory)', search:'DRAM memory chip prices', sectors:['ETFs/Other','Semiconductors'], re:/\bDRAM\b/i, verify:true, note:'"DRAM" is a memory-chip term, not a single clear ticker — verify the exact security.' },
+  MU:   { name:'Micron Technology', search:'"Micron Technology"', sectors:['Semiconductors','AI/Data Center'], re:/\bmicron\b|\bMU\b/i },
+  SNDK: { name:'SanDisk', search:'"SanDisk" stock OR Sandisk Corp', sectors:['Semiconductors'], re:/\bsandisk\b|\bSNDK\b/i, verify:true, note:'SanDisk Corp (NASDAQ: SNDK) — Feb-2025 Western Digital spinoff.' },
+  QCOM: { name:'Qualcomm', search:'"Qualcomm"', sectors:['Semiconductors','AI/Data Center'], re:/\bqualcomm\b|\bQCOM\b/i },
+  AMZN: { name:'Amazon', search:'"Amazon" (AWS OR stock OR cloud OR earnings)', sectors:['AI/Data Center','Big Tech/Cloud'], re:/\bamazon\b|\bAMZN\b|\bAWS\b/i },
+  AAOI: { name:'Applied Optoelectronics', search:'"Applied Optoelectronics"', sectors:['Optical Networking'], re:/applied optoelectronics|\bAAOI\b/i },
+  BWXT: { name:'BWX Technologies', search:'"BWX Technologies"', sectors:['Defense/Nuclear'], re:/BWX Technologies|\bBWXT\b/i },
+  AMAT: { name:'Applied Materials', search:'"Applied Materials"', sectors:['Semiconductors','AI/Data Center'], re:/applied materials|\bAMAT\b/i },
+  IONQ: { name:'IonQ', search:'"IonQ" quantum', sectors:['Quantum'], re:/\bionq\b/i },
+  NBIS: { name:'Nebius Group', search:'"Nebius"', sectors:['AI/Data Center'], re:/\bnebius\b|\bNBIS\b/i },
+  RKLB: { name:'Rocket Lab', search:'"Rocket Lab"', sectors:['Space'], re:/rocket lab|\bRKLB\b/i },
+  ORCL: { name:'Oracle', search:'"Oracle" (cloud OR stock OR earnings OR OCI)', sectors:['Big Tech/Cloud','AI/Data Center'], re:/\boracle\b|\bORCL\b/i },
+  ASTS: { name:'AST SpaceMobile', search:'"AST SpaceMobile"', sectors:['Space'], re:/ast spacemobile|\bASTS\b/i },
+  TSM:  { name:'Taiwan Semiconductor (TSMC)', search:'"Taiwan Semiconductor" OR TSMC', sectors:['Semiconductors','AI/Data Center'], re:/taiwan semiconductor|\bTSMC\b|\bTSM\b/i },
+  ASML: { name:'ASML Holding', search:'"ASML"', sectors:['Semiconductors','AI/Data Center'], re:/\bASML\b/i },
+  AMD:  { name:'Advanced Micro Devices', search:'"Advanced Micro Devices" OR "AMD chip"', sectors:['Semiconductors','AI/Data Center'], re:/advanced micro devices|\bAMD\b/i },
+};
+const PSECTOR_LIST = ['Semiconductors','AI/Data Center','Big Tech/Cloud','Quantum','Space','Defense/Nuclear','Optical Networking','ETFs/Other'];
+const CROSS = {
+  TSM:['AMD','QCOM','AMAT','ASML','MU','NBIS'], ASML:['TSM','AMD','QCOM','AMAT'], AMD:['TSM','ASML','AMAT','MU','QCOM'],
+  AMAT:['TSM','ASML','AMD','MU'], QCOM:['TSM','ASML','AMAT'], MU:['SNDK','DRAM','AMAT','TSM'], SNDK:['MU','DRAM'], DRAM:['MU','SNDK'],
+  AMZN:['AMD','TSM','ASML','AMAT','MU','NBIS','ORCL'], ORCL:['AMD','AMZN','NBIS','TSM'], NBIS:['AMD','TSM','AMZN','ORCL'],
+  RKLB:['ASTS'], ASTS:['RKLB'], BWXT:[], IONQ:[], AAOI:['TSM','AMD'], SPCX:[],
+};
+// Categories (priority order)
+const P_CATS = [
+  [/export (control|restriction|ban)|chip ban|entity list/i,'Export controls'],
+  [/earnings|quarterly results|\beps\b|beats estimates|misses estimates|revenue (of|rose|fell|grew)/i,'Earnings'],
+  [/guidance|outlook|forecast|raises? (its )?(guidance|outlook|target)|cuts? (its )?(guidance|outlook|forecast)/i,'Guidance'],
+  [/upgrade|downgrade|price target|analyst|rating|initiates? coverage|overweight|underweight/i,'Analyst rating'],
+  [/quantum/i,'Quantum computing'],
+  [/satellite|rocket|orbit|spacecraft|\bFCC\b|launch (success|failure|delay)/i,'Space / satellite'],
+  [/defense|nuclear|submarine|naval|pentagon|air force|space force/i,'Defense / nuclear'],
+  [/government contract|\bNASA\b|\bDoD\b|award(ed)? (a )?contract|wins? (a )?(contract|deal|order)/i,'Government contract'],
+  [/lawsuit|sued|investigation|probe|\bSEC\b charges|fraud|class action|short[- ]?seller|short report/i,'Legal / investigation'],
+  [/acqui|merger|buyout|takeover|\bM&A\b|to buy|to acquire/i,'M&A / acquisition'],
+  [/data ?cent(er|re)|\bcapex\b|\bcloud\b|\bAWS\b|\bOCI\b|azure|enterprise software/i,'Cloud / data center'],
+  [/\bAI\b|artificial intelligence|\bGPU\b|accelerator|chip demand/i,'AI / chip demand'],
+  [/china|taiwan|beijing|cross-strait/i,'China / Taiwan risk'],
+  [/tariff/i,'Tariffs'],
+  [/interest rate|rate cut|rate hike|federal reserve|\bFed\b|inflation/i,'Interest rates / macro'],
+  [/supply chain|shortage|inventory|capacity/i,'Supply chain'],
+  [/insider|institutional|13F|hedge fund|stake/i,'Insider / institutional'],
+  [/\b(10-K|10-Q|8-K|S-1)\b|\bSEC\b filing|prospectus/i,'SEC filing'],
+  [/launch|unveil|announce[sd]? (a |new )?(product|chip|gpu|processor)/i,'Product launch'],
+  [/trump|white house|president/i,'Trump-related'],
+];
+function pCategory(t){ for(const [re,c] of P_CATS) if(re.test(t)) return c; return 'Markets'; }
+const P_POS = /(ai demand|data ?cent\w+|capex|record (revenue|quarter|backlog)|surge|beats?|tops estimates|raises? (guidance|outlook|target)|upgrade|outperform|overweight|strong (demand|earnings|guidance|results|bookings|quarter)|subsidy|grant|wins? (a )?(contract|deal|order)|major (order|contract)|partnership|approval|successful launch|deployed?|breakthrough|all-time high|price target raised|expansion|chip shortage|pricing power|government funding)/gi;
+const P_NEG = /(miss(es|ed)?|cut (guidance|outlook|forecast)|lowers? (guidance|outlook|target)|downgrade|underperform|underweight|weak (demand|guidance|results|pricing|quarter)|export (control|restriction|ban)|chip ban|sanction|escalat\w*|tariff|lawsuit|sued|investigation|probe|fraud|delay|failure|recall|dilution|stock offering|short report|resign|steps? down|layoff|bankrupt\w*|inventory (glut|correction)|warns?|warning|setback|halt|loses? (a )?(contract|customer))/gi;
+const P_HIGH = /(earnings miss|guidance cut|revenue warning|downgrade|export (control|restriction|ban)|chip ban|escalat\w*|\btariff|lawsuit|investigation|major (contract|order)|acquisition|resign|steps? down|bankrupt\w*|short report|product delay|government contract|ai chip demand|capex surge|launch (failure|success)|quantum breakthrough|defense contract|recall|halt|fraud)/i;
+function pImpact(t){
+  const p=(t.match(P_POS)||[]).length, n=(t.match(P_NEG)||[]).length;
+  const dir = p>n?'positive': n>p?'negative': (p>0&&n>0)?'mixed':'uncertain';
+  const conf = Math.max(25, Math.min(88, 35 + Math.abs(p-n)*16 + (p+n>0?8:0)));
+  return { dir, conf };
+}
+function pMentions(text){ return State.portfolio.filter(tk => COMPANY[tk] && COMPANY[tk].re.test(text)); }
+function pSectorsOf(tickers){ const s=new Set(); tickers.forEach(t=>(COMPANY[t]?.sectors||[]).forEach(x=>s.add(x))); return [...s]; }
+function pLabel(item){
+  if(/trump|white house|president/i.test(item.text)) return 'Trump-related impact';
+  if(item.direct) return 'Direct company news';
+  if(/federal reserve|\bfed\b|inflation|interest rate|recession|\bcpi\b|tariff|macro/i.test(item.text)) return 'Macro-related news';
+  if(item.indirect) return 'Possible indirect impact';
+  return 'Sector-related news';
+}
+function pImpactColor(d){ return {positive:'var(--low)',negative:'var(--critical)',mixed:'var(--high)'}[d]||'var(--text2)'; }
+
+// ── State ──
+State.portfolio = (JSON.parse(localStorage.getItem('tt_portfolio')||'null')) || DEFAULT_PORTFOLIO.slice();
+State.pNews = []; State.pHealth = []; State.pLoaded = false; State.pLoading = false; State.pLastUpdated = null;
+State.pFilter = 'all'; State.pSearch = '';
+function savePortfolio(){ localStorage.setItem('tt_portfolio', JSON.stringify(State.portfolio)); }
+
+// ── Fetch (browser RSS via existing proxy chain) ──
+async function loadPortfolioNews(){
+  if(State.pLoading) return; State.pLoading = true; State.pLoaded = true;
+  const tickers = State.portfolio.slice();
+  State.pHealth = tickers.map(t=>({ ticker:t, status:'pending', count:0 }));
+  if(['portfolio','stocks'].includes(State.route)) render();
+  const feeds = tickers.map(t=>({ ticker:t, name:(COMPANY[t]?.name||t), url: gn(((COMPANY[t]?.search)||('"'+t+'" stock'))+' when:7d') }));
+  const acc = {};
+  await poolMap(feeds, 3, f=>fetchFeed(f,0), (r, idx)=>{
+    const t = feeds[idx].ticker;
+    State.pHealth[idx] = { ticker:t, status:r.status, count:r.items.length, error:r.error };
+    for(const it of (r.items||[])){
+      const key = it.title.toLowerCase().slice(0,70);
+      const text = it.title+' '+it.summary;
+      if(acc[key]){ if(!acc[key].tickers.includes(t)) acc[key].tickers.push(t); continue; }
+      const mentioned = Array.from(new Set([t, ...pMentions(text)]));
+      const co = COMPANY[t]||{};
+      const direct = (co.re && co.re.test(text)) || false;
+      const imp = pImpact(text);
+      const high = P_HIGH.test(text);
+      const cat = pCategory(text);
+      const related = Array.from(new Set((CROSS[t]||[]).filter(x=>State.portfolio.includes(x) && !mentioned.includes(x))));
+      acc[key] = {
+        ticker:t, company:co.name||t, verify:!!co.verify, note:co.note||'',
+        title:it.title, summary:it.summary, source:it.source, link:it.link, pubDate:it.pubDate,
+        category:cat, impact:imp.dir, confidence:imp.conf,
+        urgency: Math.min(100, 45 + (high?28:0) + Math.abs((text.match(P_POS)||[]).length-(text.match(P_NEG)||[]).length)*8 + (direct?6:0)),
+        tickers:mentioned, related, sectors:pSectorsOf(mentioned),
+        direct, indirect: !direct && related.length>0,
+        text, _hi:high,
+      };
+    }
+  });
+  let news = Object.values(acc);
+  news.forEach(n => n.label = pLabel(n));
+  State.pNews = news.sort((a,b)=> b.pubDate - a.pubDate).slice(0, 300);
+  State.pLastUpdated = new Date(); State.pLoading = false;
+  if(['portfolio','stocks'].includes(State.route) || State.route.indexOf('stock/')===0) render();
+}
+function refreshPortfolio(){ State.pLoading=false; loadPortfolioNews(); }
+
+// ── Filters ──
+function pFiltered(){
+  let list = State.pNews;
+  const f = State.pFilter, now = Date.now();
+  const sectorMap = { semis:'Semiconductors', ai:'AI/Data Center', space:'Space', quantum:'Quantum', defense:'Defense/Nuclear' };
+  if(f==='positive') list=list.filter(n=>n.impact==='positive');
+  else if(f==='negative') list=list.filter(n=>n.impact==='negative');
+  else if(f==='high') list=list.filter(n=>n.urgency>=70);
+  else if(f==='earnings') list=list.filter(n=>/Earnings|Guidance/.test(n.category));
+  else if(f==='analyst') list=list.filter(n=>n.category==='Analyst rating');
+  else if(f==='trump') list=list.filter(n=>/trump|white house|president/i.test(n.text));
+  else if(sectorMap[f]) list=list.filter(n=>n.sectors.includes(sectorMap[f]));
+  else if(f==='1h') list=list.filter(n=>now-n.pubDate<3600e3);
+  else if(f==='24h') list=list.filter(n=>now-n.pubDate<86400e3);
+  else if(f==='7d') list=list.filter(n=>now-n.pubDate<7*86400e3);
+  if(State.pSearch){ const q=State.pSearch.toLowerCase(); list=list.filter(n=>(n.title+' '+n.tickers.join(' ')+' '+n.company).toLowerCase().includes(q)); }
+  return list;
+}
+function setPFilter(f){ State.pFilter=f; render(); }
+function onPSearch(v){ State.pSearch=v; render(); const i=document.getElementById('pSearch'); if(i){i.focus();i.setSelectionRange(v.length,v.length);} }
+function addPortfolioTicker(v){ const t=(v||'').trim().toUpperCase(); if(t&&!State.portfolio.includes(t)){ State.portfolio.push(t); savePortfolio(); State.pLoaded=false; refreshPortfolio(); } render(); }
+function removePortfolioTicker(t){ State.portfolio=State.portfolio.filter(x=>x!==t); savePortfolio(); State.pNews=State.pNews.filter(n=>!(n.tickers.length===1&&n.tickers[0]===t)); render(); }
+function resetPortfolio(){ State.portfolio=DEFAULT_PORTFOLIO.slice(); savePortfolio(); State.pLoaded=false; refreshPortfolio(); render(); }
+
+// ── Render: Portfolio News ──
+function renderPortfolio(){
+  if(!State.pLoaded && !State.pLoading) loadPortfolioNews();
+  const conn=State.pHealth.filter(h=>h.status==='connected').length, fail=State.pHealth.filter(h=>h.status==='failed').length;
+  const total=State.pNews.length;
+  const pos=State.pNews.filter(n=>n.impact==='positive'), neg=State.pNews.filter(n=>n.impact==='negative'), high=State.pNews.filter(n=>n.urgency>=70);
+  // most mentioned
+  const mc={}; State.pNews.forEach(n=>n.tickers.forEach(t=>mc[t]=(mc[t]||0)+1));
+  const mostMentioned=Object.entries(mc).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  // no fresh news
+  const withNews=new Set(); State.pNews.forEach(n=>n.tickers.forEach(t=>withNews.add(t)));
+  const noNews=State.portfolio.filter(t=>!withNews.has(t));
+  // sector heatmap
+  const sc={}; State.pNews.forEach(n=>n.sectors.forEach(s=>sc[s]=(sc[s]||0)+1));
+  const maxSec=Math.max(1,...Object.values(sc));
+  const list=pFiltered();
+  const FILTERS=[['all','All'],['positive','Positive'],['negative','Negative'],['high','High urgency'],['earnings','Earnings'],['analyst','Analyst'],['semis','Semis'],['ai','AI/Data Ctr'],['space','Space'],['quantum','Quantum'],['defense','Defense'],['trump','Trump'],['1h','1h'],['24h','24h'],['7d','7d']];
+
+  return '<div class="page">'+
+    '<div class="page-title">Portfolio News</div>'+
+    '<div class="page-subtitle">'+State.portfolio.length+' stocks scanned · '+total+' items · '+conn+' sources up · '+fail+' failed'+(State.pLoading?' · <span class="mini-spin"></span> scanning…':'')+(State.pLastUpdated?' · updated '+cairoClock(State.pLastUpdated)+' Cairo':'')+' <span style="color:var(--accent);cursor:pointer" onclick="refreshPortfolio()">↻ Refresh</span></div>'+
+    // impact summary
+    '<div class="stat-grid">'+
+      '<div class="stat-card"><div class="stat-val" style="color:var(--low)">'+pos.length+'</div><div class="stat-lbl">Positive</div></div>'+
+      '<div class="stat-card"><div class="stat-val" style="color:var(--critical)">'+neg.length+'</div><div class="stat-lbl">Negative</div></div>'+
+      '<div class="stat-card"><div class="stat-val" style="color:var(--high)">'+high.length+'</div><div class="stat-lbl">High urgency</div></div>'+
+    '</div>'+
+    (Object.keys(sc).length?'<div class="section-head">Sector heat map</div>'+Object.entries(sc).sort((a,b)=>b[1]-a[1]).map(([s,c])=>'<div class="bar-row"><div class="bar-label">'+esc(s)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+(c/maxSec*100)+'%;background:'+(c>=maxSec*0.66?'var(--critical)':c>=maxSec*0.33?'var(--high)':'var(--low)')+'"></div></div><div class="bar-count">'+c+'</div></div>').join(''):'')+
+    (mostMentioned.length?'<div class="section-head">Most mentioned</div><div class="chip-row">'+mostMentioned.map(([t,c])=>'<span class="chip" onclick="go(\'stock/'+t+'\')">'+t+' · '+c+'</span>').join('')+'</div>':'')+
+    (noNews.length?'<div class="section-head">No fresh news</div><div class="chip-row">'+noNews.map(t=>'<span class="chip" style="opacity:.6" onclick="go(\'stock/'+t+'\')">'+t+'</span>').join('')+'</div>':'')+
+    // filters + search
+    '<div class="section-head">News feed</div>'+
+    '<input class="search-box" id="pSearch" placeholder="Search ticker or headline…" value="'+esc(State.pSearch)+'" oninput="onPSearch(this.value)">'+
+    '<div class="filters">'+FILTERS.map(([k,l])=>'<button class="filter-btn '+(State.pFilter===k?'active':'')+'" data-risk="'+(k==='positive'?'Low':k==='negative'?'Critical':k==='high'?'High':'all')+'" onclick="setPFilter(\''+k+'\')">'+l+'</button>').join('')+'</div>'+
+    (list.length?list.slice(0,80).map(pCard).join(''):'<div class="status-msg">'+(State.pLoading?'Scanning your portfolio…':'No items for this filter.')+'</div>')+
+    '<div class="status-msg" style="text-align:left;font-size:11px;padding:14px 0">⚠️ Informational only. Not financial advice. Market reactions are uncertain. Verify original sources before trading.</div>'+
+  '</div>';
+}
+function pCard(n){
+  const risk = n.urgency>=80?'Critical':n.urgency>=65?'High':n.urgency>=45?'Medium':'Low';
+  return '<div class="card" onclick="go(\'stock/'+n.ticker+'\')"><div class="card-accent" style="background:'+riskColor(risk)+'"></div><div class="card-body">'+
+    '<div class="card-top"><div class="card-title">'+esc(n.title)+'</div><span class="risk-pill risk-'+risk+'">'+risk+'</span></div>'+
+    '<div class="card-source"><span class="source-dot"></span>'+n.tickers.map(t=>'<span class="ticker '+(State.portfolio.includes(t)?'watched':'')+'">'+t+'</span>').join(' ')+' · '+esc(n.source)+' · '+esc(n.category)+'</div>'+
+    (n.summary?'<div class="card-summary">'+esc(n.summary.slice(0,180))+'</div>':'')+
+    '<div class="card-footer"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+
+      '<span style="font-size:11px;font-weight:700;color:'+pImpactColor(n.impact)+'">possible '+n.impact+' impact</span>'+
+      '<span class="chip" style="cursor:default">'+esc(n.label)+'</span>'+
+      (n.verify?'<span class="chip" style="color:var(--high);border-color:var(--high);cursor:default">Needs verification</span>':'')+
+    '</div><div class="card-time">🕐 '+relTime(n.pubDate)+' · conf '+n.confidence+'</div></div>'+
+    (n.related.length?'<div style="font-size:10px;color:var(--text2);margin-top:6px">Possible indirect impact → '+n.related.join(', ')+'</div>':'')+
+  '</div></div>';
+}
+
+// ── Render: My Stocks ──
+function renderStocks(){
+  if(!State.pLoaded && !State.pLoading) loadPortfolioNews();
+  const counts={}; State.pNews.forEach(n=>n.tickers.forEach(t=>counts[t]=(counts[t]||0)+1));
+  const groups={}; State.portfolio.forEach(t=>{ const secs=COMPANY[t]?.sectors||['Other']; const g=secs[0]; (groups[g]=groups[g]||[]).push(t); });
+  let body='';
+  PSECTOR_LIST.concat(Object.keys(groups).filter(g=>!PSECTOR_LIST.includes(g))).forEach(g=>{
+    const list=groups[g]; if(!list||!list.length) return;
+    body+='<div class="section-head">'+esc(g)+'</div>';
+    body+=list.map(t=>{
+      const co=COMPANY[t]||{name:t}; const c=counts[t]||0;
+      const latest=State.pNews.find(n=>n.tickers.includes(t));
+      return '<div class="card" onclick="go(\'stock/'+t+'\')"><div class="card-body">'+
+        '<div class="card-top"><div><span class="ticker watched" style="font-size:13px">'+t+'</span> <b style="font-size:13px">'+esc(co.name)+'</b></div>'+
+        '<span style="display:flex;gap:6px;align-items:center"><span class="chip" style="cursor:default">'+c+' news</span><span style="color:var(--text2);cursor:pointer" onclick="event.stopPropagation();removePortfolioTicker(\''+t+'\')">✕</span></span></div>'+
+        (co.verify?'<div style="font-size:10px;color:var(--high);margin-top:4px">⚠ Needs verification — '+esc(co.note||'')+'</div>':'')+
+        (latest?'<div class="card-summary" style="margin-top:6px">'+esc(latest.title.slice(0,120))+' <span style="color:'+pImpactColor(latest.impact)+'">· '+latest.impact+'</span></div>':'<div class="card-summary" style="margin-top:6px;color:var(--text2)">No fresh news in the last 7 days.</div>')+
+      '</div></div>';
+    }).join('');
+  });
+  return '<div class="page">'+
+    '<div class="page-title">My Stocks</div>'+
+    '<div class="page-subtitle">'+State.portfolio.length+' tickers · tap a stock for its news radar'+(State.pLoading?' · <span class="mini-spin"></span>':'')+'</div>'+
+    '<input class="search-box" placeholder="Add ticker (e.g. NVDA) then Enter" onkeydown="if(event.key===\'Enter\'){addPortfolioTicker(this.value);this.value=\'\';}">'+
+    '<div style="display:flex;gap:8px;margin-bottom:14px"><button class="filter-btn" onclick="refreshPortfolio()">↻ Refresh news</button><button class="filter-btn" onclick="resetPortfolio()">Reset to default</button></div>'+
+    body+
+    '<div class="status-msg" style="text-align:left;font-size:11px;padding:14px 0">⚠️ Informational only. Not financial advice. Verify original sources before trading.</div>'+
+  '</div>';
+}
+
+// ── Render: per-stock detail ──
+function renderStockDetail(t){
+  if(!State.pLoaded && !State.pLoading) loadPortfolioNews();
+  const co=COMPANY[t]||{name:t, sectors:[]};
+  const news=State.pNews.filter(n=>n.tickers.includes(t)).slice(0,40);
+  const related=(CROSS[t]||[]).filter(x=>State.portfolio.includes(x));
+  const pos=news.filter(n=>n.impact==='positive').length, neg=news.filter(n=>n.impact==='negative').length;
+  return '<div class="page">'+
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><span style="color:var(--accent);cursor:pointer;font-size:20px" onclick="history.back()">‹</span>'+
+      '<div class="page-title" style="margin:0">'+t+' · '+esc(co.name)+'</div></div>'+
+    '<div class="page-subtitle">'+(co.sectors||[]).map(esc).join(' · ')+(co.verify?' · <span style="color:var(--high)">Needs verification</span>':'')+' · '+news.length+' items · updated '+(State.pLastUpdated?cairoClock(State.pLastUpdated)+' Cairo':'—')+'</div>'+
+    (co.verify&&co.note?'<div class="status-msg" style="text-align:left;background:rgba(251,140,0,.08);border:1px solid rgba(251,140,0,.3);border-radius:10px;padding:11px;color:var(--text)">⚠ '+esc(co.note)+'</div>':'')+
+    '<div class="stat-grid"><div class="stat-card"><div class="stat-val" style="color:var(--low)">'+pos+'</div><div class="stat-lbl">Positive</div></div>'+
+      '<div class="stat-card"><div class="stat-val" style="color:var(--critical)">'+neg+'</div><div class="stat-lbl">Negative</div></div>'+
+      '<div class="stat-card"><div class="stat-val" style="font-size:14px;color:var(--accent)">'+(news[0]?esc(news[0].category):'—')+'</div><div class="stat-lbl">Latest theme</div></div></div>'+
+    (related.length?'<div class="section-head">Related holdings (cross-impact)</div><div class="chip-row">'+related.map(x=>'<span class="chip" onclick="go(\'stock/'+x+'\')">'+x+'</span>').join('')+'</div>':'')+
+    '<div class="section-head">Latest news</div>'+
+    (news.length?news.map(pCard).join(''):'<div class="status-msg">'+(State.pLoading?'Scanning…':'No fresh news for '+t+' in the last 7 days.')+'</div>')+
+    '<div class="status-msg" style="text-align:left;font-size:11px;padding:14px 0">⚠️ Informational only. Not financial advice. Verify original sources before trading.</div>'+
+  '</div>';
+}
 
 // ============================ LOAD ============================
 // Turn accumulated raw feed items into enriched, deduped, sorted alerts.
@@ -552,10 +803,17 @@ function render() {
   renderRefreshBar();
   renderNav();
   const app = document.getElementById('app');
+  // Portfolio pages have their own loading state — render them even while the
+  // Trump/market feeds are still loading.
+  if (State.route.indexOf('stock/') === 0) { app.innerHTML = renderStockDetail(State.route.slice(6).toUpperCase()); return; }
+  if (State.route === 'portfolio') { app.innerHTML = renderPortfolio(); return; }
+  if (State.route === 'stocks') { app.innerHTML = renderStocks(); return; }
   if (State.loading && !State.alerts.length) { app.innerHTML = skeletonPage(); return; }
   if (State.error && !State.alerts.length) { app.innerHTML = '<div class="page"><div class="status-msg error">' + esc(State.error) + '</div></div>'; return; }
   switch (State.route) {
     case 'dashboard': app.innerHTML = renderDashboard(); break;
+    case 'portfolio': app.innerHTML = renderPortfolio(); break;
+    case 'stocks':    app.innerHTML = renderStocks(); break;
     case 'alerts':    app.innerHTML = renderAlerts(); break;
     case 'markets':   app.innerHTML = renderMarkets(); break;
     case 'watchlist': app.innerHTML = renderWatchlist(); break;
@@ -824,10 +1082,11 @@ function renderMarkets() {
 
 function renderNav() {
   const items = [
+    { r:'portfolio', i:'📰', l:'Portfolio' },
+    { r:'stocks', i:'💼', l:'Stocks' },
     { r:'dashboard', i:'📊', l:'Dashboard' },
     { r:'alerts', i:'🔔', l:'Alerts' },
     { r:'markets', i:'📈', l:'Markets' },
-    { r:'watchlist', i:'⭐', l:'Watchlist' },
     { r:'sources', i:'📡', l:'Sources' },
     { r:'settings', i:'⚙️', l:'Settings' },
   ];
@@ -849,7 +1108,8 @@ window.addEventListener('hashchange', () => { State.route = location.hash.replac
 
 // ============================ BOOT ============================
 render();
-loadFeeds();
+loadPortfolioNews();   // personal portfolio radar (primary)
+loadFeeds();           // Trump/market alerts (secondary)
 scheduleRefresh();
 </script>
 <script>
