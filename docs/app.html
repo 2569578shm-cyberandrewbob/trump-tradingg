@@ -2,8 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Trump Trading — Live Market Intelligence</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0B0F14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Trump Trading">
+<meta name="description" content="Live market-moving Trump news with automated risk and affected-asset analysis.">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root {
     --bg: #0B0F14;
@@ -548,6 +557,7 @@ function render() {
   switch (State.route) {
     case 'dashboard': app.innerHTML = renderDashboard(); break;
     case 'alerts':    app.innerHTML = renderAlerts(); break;
+    case 'markets':   app.innerHTML = renderMarkets(); break;
     case 'watchlist': app.innerHTML = renderWatchlist(); break;
     case 'sources':   app.innerHTML = renderSources(); break;
     case 'settings':  app.innerHTML = renderSettings(); break;
@@ -775,10 +785,48 @@ function removeTicker(t) { State.watchlist = State.watchlist.filter(x=>x!==t); s
 function setRefresh(ms) { State.refreshMs = parseInt(ms); localStorage.setItem('tt_refresh', ms); scheduleRefresh(); render(); }
 function manualRefresh() { scheduleRefresh(); loadFeeds(); }
 
+// ── Affected Markets ─────────────────────────────────────────────────────
+function renderMarkets() {
+  const a = State.alerts;
+  if (!a.length) return '<div class="page"><div class="page-title">Affected Markets</div><div class="status-msg">No data yet — loading live news…</div></div>';
+
+  const tkCount = {}, secCount = {}, catCount = {};
+  let urgencySum = 0;
+  a.forEach(x => {
+    (x.tickers||[]).forEach(t => tkCount[t] = (tkCount[t]||0)+1);
+    (x.sectors||[]).forEach(s => secCount[s] = (secCount[s]||0)+1);
+    if (x.category) catCount[x.category] = (catCount[x.category]||0)+1;
+    urgencySum += (x.urgency||0);
+  });
+  const topTickers = Object.entries(tkCount).sort((p,q)=>q[1]-p[1]).slice(0,15);
+  const topSectors = Object.entries(secCount).sort((p,q)=>q[1]-p[1]).slice(0,10);
+  const strongestCat = Object.entries(catCount).sort((p,q)=>q[1]-p[1])[0];
+  const avgUrgency = Math.round(urgencySum / a.length);
+  const maxTk = topTickers.length?topTickers[0][1]:1, maxSec = topSectors.length?topSectors[0][1]:1;
+  const latest = a[0];
+
+  return '<div class="page">' +
+    '<div class="page-title">Affected Markets</div>' +
+    '<div class="page-subtitle">Assets &amp; sectors that may react, aggregated from '+a.length+' live items</div>' +
+    '<div class="stat-grid">' +
+      '<div class="stat-card"><div class="stat-val">'+a.length+'</div><div class="stat-lbl">Related items</div></div>' +
+      '<div class="stat-card"><div class="stat-val" style="color:var(--high)">'+avgUrgency+'</div><div class="stat-lbl">Avg urgency</div></div>' +
+      '<div class="stat-card"><div class="stat-val" style="font-size:14px;color:var(--accent)">'+esc(strongestCat?strongestCat[0]:'—')+'</div><div class="stat-lbl">Strongest theme</div></div>' +
+    '</div>' +
+    (latest ? '<div class="section-head">Latest related headline</div><div class="card"><div class="card-body"><div class="card-title" style="font-size:13px">'+esc(latest.title)+'</div><div class="card-source" style="margin-top:5px"><span class="source-dot"></span>'+esc(latest.source)+' · '+esc(latest.category||'')+'</div></div></div>' : '') +
+    '<div class="section-head">Top affected stocks / tickers</div>' +
+    (topTickers.length ? topTickers.map(e => '<div class="bar-row"><div class="bar-label"><span class="ticker '+(State.watchlist.includes(e[0])?'watched':'')+'">'+esc(e[0])+'</span></div><div class="bar-track"><div class="bar-fill" style="width:'+(e[1]/maxTk*100)+'%"></div></div><div class="bar-count">'+e[1]+'</div></div>').join('') : '<div class="status-msg">No tickers detected yet.</div>') +
+    '<div class="section-head">Top affected sectors</div>' +
+    (topSectors.length ? topSectors.map(e => '<div class="bar-row"><div class="bar-label">'+esc(e[0])+'</div><div class="bar-track"><div class="bar-fill" style="width:'+(e[1]/maxSec*100)+'%"></div></div><div class="bar-count">'+e[1]+'</div></div>').join('') : '<div class="status-msg">No sector data yet.</div>') +
+    '<div class="status-msg" style="text-align:left;font-size:11px;padding:14px 0">⚠️ Informational only. Not financial advice. These are possible reactions inferred from news keywords — market moves are uncertain. Verify at the source before trading.</div>' +
+  '</div>';
+}
+
 function renderNav() {
   const items = [
     { r:'dashboard', i:'📊', l:'Dashboard' },
     { r:'alerts', i:'🔔', l:'Alerts' },
+    { r:'markets', i:'📈', l:'Markets' },
     { r:'watchlist', i:'⭐', l:'Watchlist' },
     { r:'sources', i:'📡', l:'Sources' },
     { r:'settings', i:'⚙️', l:'Settings' },
@@ -803,6 +851,30 @@ window.addEventListener('hashchange', () => { State.route = location.hash.replac
 render();
 loadFeeds();
 scheduleRefresh();
+</script>
+<script>
+// ============================ PWA service worker ============================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      // When a new version is found, activate it immediately and reload once so
+      // the user never sees a stale/old cached page.
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener('statechange', () => {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            nw.postMessage('skipWaiting');
+          }
+        });
+      });
+    }).catch(() => {});
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloaded) return; reloaded = true; location.reload();
+    });
+  });
+}
 </script>
 </body>
 </html>
