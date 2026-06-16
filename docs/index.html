@@ -2,254 +2,840 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trump Trading — App Mockup</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Trump Trading — Live Market Intelligence</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0B0F14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Trump Trading">
+<meta name="description" content="Live market-moving Trump news with automated risk and affected-asset analysis.">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
-  :root{--bg:#0B0F14;--surface:#121821;--surface2:#1A2230;--border:#243044;--critical:#E53935;--high:#FB8C00;--medium:#FDD835;--low:#66BB6A;--accent:#3D8BFD;--text:#E6EBF2;--text2:#8A97A8}
-  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-  body{background:#05070A;color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;padding:24px 0 60px}
-  .wrap{max-width:1100px;margin:0 auto;padding:0 16px}
-  .intro{text-align:center;margin-bottom:22px}
-  .intro h1{font-size:22px;font-weight:800}
-  .intro p{font-size:13px;color:var(--text2);margin-top:4px}
-  .badge{display:inline-block;background:rgba(61,139,253,.15);border:1px solid var(--accent);color:var(--accent);font-size:11px;padding:3px 10px;border-radius:20px;margin-top:8px}
-  /* phone frames row */
-  .phones{display:flex;gap:26px;flex-wrap:wrap;justify-content:center}
-  .phone{width:340px;flex-shrink:0}
-  .phone-label{text-align:center;font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:600;letter-spacing:.3px}
-  .screen{background:var(--bg);border:8px solid #11161d;border-radius:30px;overflow:hidden;height:710px;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.5)}
-  .notch{height:22px;background:#11161d;display:flex;align-items:center;justify-content:center}
-  .notch::after{content:'';width:90px;height:5px;background:#05070A;border-radius:3px}
-  .head{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 15px;display:flex;align-items:center;justify-content:space-between}
-  .logo{display:flex;align-items:center;gap:9px}
-  .logo-ic{width:30px;height:30px;background:var(--accent);border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;font-size:15px}
-  .logo b{font-size:15px}.logo div small{font-size:9px;color:var(--text2);display:block}
-  .live{display:flex;align-items:center;gap:5px;background:rgba(229,57,53,.15);border:1px solid var(--critical);color:var(--critical);border-radius:20px;padding:3px 9px;font-size:10px;font-weight:700}
-  .live .dot{width:6px;height:6px;border-radius:50%;background:var(--critical);animation:p 1.2s infinite}
-  @keyframes p{0%,100%{opacity:1}50%{opacity:.25}}
-  .body{flex:1;overflow-y:auto;padding:13px}
-  .ptitle{font-size:19px;font-weight:800;margin-bottom:2px}
-  .psub{font-size:11px;color:var(--text2);margin-bottom:13px}
-  /* nav */
-  .nav{display:flex;background:var(--surface);border-top:1px solid var(--border)}
-  .nav div{flex:1;text-align:center;padding:8px 2px 7px;font-size:9px;color:var(--text2)}
-  .nav div.on{color:var(--accent)}
-  .nav div span{font-size:17px;display:block;margin-bottom:1px}
-  /* widgets */
-  .meter{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:15px;margin-bottom:14px}
-  .meter .r{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-  .meter h3{font-size:13px}.meter .score{font-size:27px;font-weight:900}
-  .track{height:11px;background:var(--surface2);border-radius:7px;overflow:hidden}
-  .fill{height:100%;border-radius:7px}
-  .lbls{display:flex;justify-content:space-between;font-size:9px;color:var(--text2);margin-top:5px}
-  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
-  .stat{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:11px;text-align:center}
-  .stat .v{font-size:22px;font-weight:800}.stat .l{font-size:9px;color:var(--text2);text-transform:uppercase;margin-top:3px}
-  .sec{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin:14px 0 8px}
-  .bar{display:flex;align-items:center;gap:9px;margin-bottom:8px}
-  .bar .bl{font-size:11px;width:92px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .bar .bt{flex:1;height:7px;background:var(--surface2);border-radius:5px;overflow:hidden}
-  .bar .bf{height:100%;background:var(--accent);border-radius:5px}
-  .bar .bc{font-size:11px;color:var(--text2);width:22px;text-align:right;font-weight:600}
-  /* alert card */
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:10px}
-  .acc{height:3px}.cb{padding:12px 13px}
-  .ct{display:flex;justify-content:space-between;gap:8px;margin-bottom:6px}
-  .ctitle{font-size:13px;font-weight:600;line-height:1.35;flex:1}
-  .pill{font-size:9px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;padding:3px 8px;border-radius:20px;white-space:nowrap;height:fit-content}
-  .Critical{background:rgba(229,57,53,.18);color:var(--critical)}.High{background:rgba(251,140,0,.18);color:var(--high)}.Medium{background:rgba(253,216,53,.18);color:var(--medium)}.Low{background:rgba(102,187,106,.18);color:var(--low)}
-  .csrc{font-size:10px;color:var(--text2);margin-bottom:6px}
-  .official{color:var(--low);font-weight:700}.conf{color:var(--low)}.unconf{color:var(--medium)}
-  .csum{font-size:11.5px;color:var(--text2);line-height:1.45;margin-bottom:8px}
-  .tk{display:inline-block;font-size:10px;font-weight:700;background:rgba(61,139,253,.12);border:1px solid rgba(61,139,253,.3);color:var(--accent);padding:1px 6px;border-radius:4px;margin-right:4px}
-  .mi{margin-top:8px;background:var(--surface2);border-radius:8px;padding:9px 10px}
-  .mi-h{font-size:9px;font-weight:800;letter-spacing:.4px;color:var(--accent);display:flex;justify-content:space-between;margin-bottom:5px}
-  .mi-l{font-size:11px;margin-top:3px}
-  .pos{color:var(--low)}.neg{color:var(--critical)}.mix{color:var(--high)}.unc{color:var(--text2)}
-  .mi-note{font-size:9px;color:var(--text2);margin-top:6px}
-  .time{font-size:10px;color:var(--text2);margin-top:7px}
-  /* source rows */
-  .srow{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 12px;margin-bottom:8px}
-  .sr-t{display:flex;justify-content:space-between;align-items:center;gap:8px}
-  .sr-n{font-size:12px;font-weight:600}
-  .chip{font-size:9px;font-weight:700;text-transform:uppercase;padding:3px 8px;border-radius:20px}
-  .c-on{background:rgba(102,187,106,.18);color:var(--low)}.c-fail{background:rgba(229,57,53,.18);color:var(--critical)}.c-no{background:rgba(253,216,53,.18);color:var(--medium)}
-  .sr-m{font-size:10px;color:var(--text2);margin-top:5px}
-  .grp{font-size:11px;color:var(--accent);font-weight:700;margin:12px 0 7px}
-  /* settings */
-  .set{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
-  .set .sl{font-size:12px}.set .sv{font-size:11px;color:var(--text2)}
-  .disc{font-size:10px;color:var(--text2);line-height:1.5;margin-top:14px;padding:10px;background:var(--surface);border-radius:8px;border:1px solid var(--border)}
-  .agg{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:13px;margin-bottom:9px}
-  .agg h4{font-size:12px;color:var(--accent);margin-bottom:9px}
-  .arow{display:flex;align-items:center;gap:9px;margin-bottom:8px}
-  .asym{font-size:12px;font-weight:800;width:52px}
-  .aname{flex:1}.aname .n1{font-size:11px}.aname .n2{font-size:9px;color:var(--text2)}
-  .aimp{font-size:9px}
+  :root {
+    --bg: #0B0F14;
+    --surface: #121821;
+    --surface2: #1A2230;
+    --border: #243044;
+    --critical: #E53935;
+    --high: #FB8C00;
+    --medium: #FDD835;
+    --low: #66BB6A;
+    --accent: #3D8BFD;
+    --text: #E6EBF2;
+    --text2: #8A97A8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh; padding-bottom: 70px;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  /* Header */
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 12px 18px; display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 34px; height: 34px; background: var(--accent); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 900; color: #fff;
+  }
+  .logo-text { font-size: 16px; font-weight: 700; letter-spacing: .3px; }
+  .logo-sub { font-size: 10px; color: var(--text2); }
+  .live-badge {
+    display: flex; align-items: center; gap: 6px; background: rgba(229,57,53,.15);
+    border: 1px solid var(--critical); color: var(--critical); border-radius: 20px;
+    padding: 4px 11px; font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--critical); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+  /* Refresh status bar */
+  .refresh-bar {
+    background: var(--surface2); border-bottom: 1px solid var(--border);
+    padding: 6px 18px; font-size: 11px; color: var(--text2);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .refresh-bar .countdown { color: var(--accent); font-weight: 600; }
+  .mini-spin { width: 11px; height: 11px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; display: inline-block; animation: spin .8s linear infinite; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Page container */
+  .page { max-width: 880px; margin: 0 auto; padding: 16px 18px; }
+  .page-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+  .page-subtitle { font-size: 12px; color: var(--text2); margin-bottom: 16px; }
+
+  /* Stat grid */
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; }
+  .stat-val { font-size: 26px; font-weight: 800; line-height: 1; }
+  .stat-lbl { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; margin-top: 6px; }
+
+  /* Risk meter */
+  .meter-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 18px; }
+  .meter-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .meter-head h3 { font-size: 14px; font-weight: 700; }
+  .meter-score { font-size: 30px; font-weight: 900; }
+  .meter-track { height: 12px; background: var(--surface2); border-radius: 8px; overflow: hidden; position: relative; }
+  .meter-fill { height: 100%; border-radius: 8px; transition: width .6s ease, background .6s; }
+  .meter-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text2); margin-top: 6px; }
+
+  /* Section */
+  .section-head { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; margin: 18px 0 10px; }
+
+  /* Bar list */
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+  .bar-label { font-size: 12px; width: 110px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-track { flex: 1; height: 8px; background: var(--surface2); border-radius: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--accent); border-radius: 6px; }
+  .bar-count { font-size: 12px; color: var(--text2); width: 26px; text-align: right; font-weight: 600; }
+
+  /* Chips / tickers */
+  .chip-row { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip {
+    font-size: 12px; font-weight: 600; background: rgba(61,139,253,.12);
+    border: 1px solid rgba(61,139,253,.3); color: var(--accent); padding: 4px 11px; border-radius: 6px; cursor: pointer;
+  }
+  .chip.removable::after { content: ' \2715'; opacity: .6; }
+
+  /* Filters */
+  .filters { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 14px; }
+  .filter-btn {
+    padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border);
+    background: transparent; color: var(--text2); font-size: 12px; cursor: pointer; transition: all .15s;
+  }
+  .filter-btn.active[data-risk="all"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .filter-btn.active[data-risk="Critical"] { background: var(--critical); border-color: var(--critical); color: #fff; }
+  .filter-btn.active[data-risk="High"] { background: var(--high); border-color: var(--high); color: #111; }
+  .filter-btn.active[data-risk="Medium"] { background: var(--medium); border-color: var(--medium); color: #111; }
+  .filter-btn.active[data-risk="Low"] { background: var(--low); border-color: var(--low); color: #111; }
+  .search-box {
+    width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 14px; color: var(--text); font-size: 13px; margin-bottom: 12px; outline: none;
+  }
+  .search-box:focus { border-color: var(--accent); }
+
+  /* Alert card */
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; cursor: pointer; transition: border-color .15s, transform .12s; margin-bottom: 11px;
+  }
+  .card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .card-accent { height: 3px; }
+  .card-body { padding: 13px 15px; }
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
+  .risk-pill { font-size: 10px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; padding: 3px 9px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+  .risk-Critical { background: rgba(229,57,53,.18); color: var(--critical); }
+  .risk-High { background: rgba(251,140,0,.18); color: var(--high); }
+  .risk-Medium { background: rgba(253,216,53,.18); color: var(--medium); }
+  .risk-Low { background: rgba(102,187,106,.18); color: var(--low); }
+  .card-title { font-size: 14px; font-weight: 600; line-height: 1.4; flex: 1; }
+  .card-source { font-size: 11px; color: var(--text2); margin-bottom: 7px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .source-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+  .confirmed { color: var(--low); } .unconfirmed { color: var(--medium); }
+  .card-summary { font-size: 12.5px; color: var(--text2); line-height: 1.5; margin-bottom: 9px; }
+  .card-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .tickers { display: flex; gap: 5px; flex-wrap: wrap; }
+  .ticker { font-size: 11px; font-weight: 700; background: rgba(61,139,253,.12); border: 1px solid rgba(61,139,253,.3); color: var(--accent); padding: 2px 7px; border-radius: 4px; }
+  .ticker.watched { background: rgba(102,187,106,.15); border-color: rgba(102,187,106,.4); color: var(--low); }
+  .card-time { font-size: 11px; color: var(--text2); }
+
+  /* Skeleton */
+  .skeleton { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 15px; margin-bottom: 11px; }
+  .skel-line { height: 11px; border-radius: 6px; background: var(--surface2); margin-bottom: 9px; animation: shimmer 1.4s infinite; }
+  .skel-line.w40{width:40%}.skel-line.w60{width:60%}.skel-line.w80{width:80%}
+  @keyframes shimmer { 0%,100%{opacity:.4} 50%{opacity:.9} }
+
+  /* Status / empty */
+  .status-msg { text-align: center; padding: 30px 16px; color: var(--text2); font-size: 13px; line-height: 1.6; }
+  .status-msg.error { color: var(--critical); }
+
+  /* Detail modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 200;
+    display: none; align-items: flex-end; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg); border-top: 1px solid var(--border);
+    border-radius: 18px 18px 0 0; width: 100%; max-width: 880px; max-height: 90vh;
+    overflow-y: auto; padding: 0 0 30px; animation: slideUp .25s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(40px); opacity: .6; } to { transform: translateY(0); opacity: 1; } }
+  .modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 4px; margin: 10px auto; }
+  .modal-body { padding: 8px 20px; }
+  .detail-accent { height: 4px; border-radius: 4px; margin-bottom: 16px; }
+  .detail-row { margin-bottom: 16px; }
+  .detail-label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 5px; font-weight: 700; }
+  .detail-val { font-size: 14px; line-height: 1.55; }
+  .detail-statement { background: var(--surface); border-left: 3px solid var(--accent); border-radius: 8px; padding: 13px 15px; font-size: 14px; line-height: 1.6; font-style: italic; }
+  .reliability-bar { height: 7px; background: var(--surface2); border-radius: 5px; overflow: hidden; margin-top: 5px; }
+  .reliability-fill { height: 100%; background: var(--low); border-radius: 5px; }
+  .open-link { display: inline-block; margin-top: 8px; color: var(--accent); font-size: 13px; font-weight: 600; }
+
+  /* Source health rows */
+  .src-row { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 13px 15px; margin-bottom: 9px; }
+  .src-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .src-name { font-size: 13px; font-weight: 600; }
+  .src-status { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; padding: 3px 9px; border-radius: 20px; }
+  .src-connected { background: rgba(102,187,106,.18); color: var(--low); }
+  .src-failed { background: rgba(229,57,53,.18); color: var(--critical); }
+  .src-noitems { background: rgba(253,216,53,.18); color: var(--medium); }
+  .src-meta { font-size: 11px; color: var(--text2); margin-top: 6px; }
+
+  /* Settings rows */
+  .set-row { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 15px; margin-bottom: 9px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .set-label { font-size: 13px; }
+  .set-value { font-size: 12px; color: var(--text2); }
+  .interval-select { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12px; }
+
+  /* Bottom nav */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface);
+    border-top: 1px solid var(--border); display: flex; z-index: 100; max-width: 880px; margin: 0 auto;
+  }
+  .nav-item {
+    flex: 1; padding: 10px 4px 8px; text-align: center; cursor: pointer; color: var(--text2);
+    font-size: 10px; transition: color .15s; position: relative;
+  }
+  .nav-item.active { color: var(--accent); }
+  .nav-item .nav-icon { font-size: 19px; display: block; margin-bottom: 2px; }
+  .nav-badge { position: absolute; top: 5px; right: 50%; margin-right: -22px; background: var(--critical); color: #fff; font-size: 8px; font-weight: 700; min-width: 15px; height: 15px; border-radius: 9px; padding: 0 4px; display: flex; align-items: center; justify-content: center; }
+
+  @media (max-width: 480px) {
+    .bar-label { width: 80px; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="intro">
-    <h1>🇺🇸 Trump Trading — App Mockup</h1>
-    <p>Static design mockup with representative sample data. Shows the real Android UI: Dashboard, Live Alerts with market-impact, Affected Markets, Sources, Settings.</p>
-    <div class="badge">Mockup · sample data · not live</div>
-    <div style="margin-top:12px"><a href="./app.html" style="display:inline-block;background:var(--accent);color:#fff;font-size:13px;font-weight:600;padding:8px 18px;border-radius:22px;text-decoration:none">▶ Open the live version (real news feed) →</a></div>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">T</div>
+    <div>
+      <div class="logo-text">Trump Trading</div>
+      <div class="logo-sub">Live market intelligence</div>
+    </div>
   </div>
+  <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+</header>
 
-  <div class="phones">
+<div class="refresh-bar">
+  <span id="lastUpdated">Loading feeds&hellip;</span>
+  <span>Next refresh in <span class="countdown" id="countdown">&mdash;</span></span>
+</div>
 
-    <!-- ───────── DASHBOARD ───────── -->
-    <div class="phone">
-      <div class="phone-label">① Dashboard</div>
-      <div class="screen">
-        <div class="notch"></div>
-        <div class="head"><div class="logo"><div class="logo-ic">T</div><div><b>Trump Trading</b><small>Live market intelligence</small></div></div><div class="live"><div class="dot"></div>LIVE</div></div>
-        <div class="body">
-          <div class="ptitle">Dashboard</div>
-          <div class="psub">Aggregated from 148 live items · Sat 13 Jun, 21:40 Cairo</div>
-          <div class="meter">
-            <div class="r"><h3>Market Risk Meter</h3><div class="score" style="color:var(--high)">68</div></div>
-            <div class="track"><div class="fill" style="width:68%;background:var(--high)"></div></div>
-            <div class="lbls"><span>Calm</span><span style="color:var(--high);font-weight:700">HEIGHTENED</span><span>Critical</span></div>
-          </div>
-          <div class="stats">
-            <div class="stat"><div class="v" style="color:var(--critical)">3</div><div class="l">Critical</div></div>
-            <div class="stat"><div class="v" style="color:var(--high)">14</div><div class="l">High</div></div>
-            <div class="stat"><div class="v" style="color:var(--medium)">22</div><div class="l">Medium</div></div>
-          </div>
-          <div class="sec">⚡ High-impact now</div>
-          <div class="card"><div class="acc" style="background:var(--critical)"></div><div class="cb">
-            <div class="ct"><div class="ctitle">Trump orders strike on Iranian targets after Strait of Hormuz incident</div><div class="pill Critical">Critical</div></div>
-            <div class="csrc">Reuters · <span class="official">OFFICIAL</span> · <span class="conf">✓ confirmed (3 src)</span></div>
-            <div><span class="tk">LMT</span><span class="tk">XOM</span><span class="tk">CL</span><span class="tk">GLD</span></div>
-          </div></div>
-          <div class="sec">Top affected sectors</div>
-          <div class="bar"><div class="bl">Energy</div><div class="bt"><div class="bf" style="width:100%"></div></div><div class="bc">41</div></div>
-          <div class="bar"><div class="bl">Defense</div><div class="bt"><div class="bf" style="width:78%"></div></div><div class="bc">32</div></div>
-          <div class="bar"><div class="bl">Airlines</div><div class="bt"><div class="bf" style="width:46%"></div></div><div class="bc">19</div></div>
-          <div class="sec">Most mentioned tickers</div>
-          <div class="bar"><div class="bl"><span class="tk">XOM</span></div><div class="bt"><div class="bf" style="width:100%"></div></div><div class="bc">28</div></div>
-          <div class="bar"><div class="bl"><span class="tk">LMT</span></div><div class="bt"><div class="bf" style="width:71%"></div></div><div class="bc">20</div></div>
-        </div>
-        <div class="nav"><div class="on"><span>📊</span>Dashboard</div><div><span>🔔</span>Alerts</div><div><span>📈</span>Markets</div><div><span>⭐</span>Watch</div><div><span>⚙️</span>Settings</div></div>
-      </div>
-    </div>
+<div id="app"></div>
 
-    <!-- ───────── LIVE ALERTS ───────── -->
-    <div class="phone">
-      <div class="phone-label">② Live Alerts — with market impact</div>
-      <div class="screen">
-        <div class="notch"></div>
-        <div class="head"><div class="logo"><div class="logo-ic">T</div><div><b>Trump Trading</b><small>Live market intelligence</small></div></div><div class="live"><div class="dot"></div>LIVE</div></div>
-        <div class="body">
-          <div class="ptitle">Live Alerts</div>
-          <div class="psub">39 urgent alerts · auto-refresh every 60s</div>
-
-          <div class="card"><div class="acc" style="background:var(--critical)"></div><div class="cb">
-            <div class="ct"><div class="ctitle">Trump orders strike on Iranian targets after Strait of Hormuz incident</div><div class="pill Critical">Critical</div></div>
-            <div class="csrc">Reuters · Geopolitics · <span class="conf">✓ confirmed</span></div>
-            <div class="csum">President says U.S. forces conducted a "precise and powerful" strike following attacks on shipping near the Strait of Hormuz.</div>
-            <div><span class="tk">LMT</span><span class="tk">RTX</span><span class="tk">XOM</span><span class="tk">CL</span></div>
-            <div class="mi">
-              <div class="mi-h"><span>⚡ POSSIBLE MARKET IMPACT</span><span style="color:var(--text2)">tap to expand</span></div>
-              <div class="mi-l pos">Defense: LMT, RTX, NOC — possible positive impact</div>
-              <div class="mi-l pos">Energy: XOM, CVX, COP — possible positive impact</div>
-              <div class="mi-l neg">Airlines: DAL, UAL, AAL — possible negative impact</div>
-              <div class="mi-note">+2 more sectors · Corroborated by multiple sources.</div>
-            </div>
-            <div class="time">🕐 4 min ago · Cairo</div>
-          </div></div>
-
-          <div class="card"><div class="acc" style="background:var(--high)"></div><div class="cb">
-            <div class="ct"><div class="ctitle">Trump on Truth Social: new 25% tariffs on Chinese EV imports "effective immediately"</div><div class="pill High">High</div></div>
-            <div class="csrc">Truth Social via News · Tariffs · <span class="unconf">○ unconfirmed</span></div>
-            <div class="csum">News report about a Truth Social post announcing fresh auto tariffs targeting Chinese manufacturers.</div>
-            <div><span class="tk">FXI</span><span class="tk">TSLA</span><span class="tk">NVDA</span></div>
-            <div class="mi">
-              <div class="mi-h"><span>⚡ POSSIBLE MARKET IMPACT</span><span style="color:var(--text2)">tap to expand</span></div>
-              <div class="mi-l neg">China: FXI, MCHI, KWEB — possible negative impact</div>
-              <div class="mi-l neg">Semiconductors: NVDA, AMD, TSM — possible negative impact</div>
-              <div class="mi-l pos">Materials: X, NUE, STLD — possible positive impact</div>
-              <div class="mi-note">+1 more sector · Unconfirmed single-source — lower confidence.</div>
-            </div>
-            <div class="time">🕐 12 min ago · Cairo</div>
-          </div></div>
-
-          <div class="card"><div class="acc" style="background:var(--medium)"></div><div class="cb">
-            <div class="ct"><div class="ctitle">Trump pressures Fed for rate cut, says dollar "too strong"</div><div class="pill Medium">Medium</div></div>
-            <div class="csrc">CNBC · Monetary Policy · <span class="conf">✓ confirmed</span></div>
-            <div><span class="tk">TLT</span><span class="tk">JPM</span><span class="tk">UUP</span></div>
-            <div class="mi">
-              <div class="mi-h"><span>⚡ POSSIBLE MARKET IMPACT</span><span style="color:var(--text2)">tap</span></div>
-              <div class="mi-l mix">Banking: JPM, BAC, WFC — possible mixed impact</div>
-              <div class="mi-l unc">Bonds: TLT, IEF — possible uncertain impact</div>
-            </div>
-            <div class="time">🕐 28 min ago · Cairo</div>
-          </div></div>
-        </div>
-        <div class="nav"><div><span>📊</span>Dashboard</div><div class="on"><span>🔔</span>Alerts</div><div><span>📈</span>Markets</div><div><span>⭐</span>Watch</div><div><span>⚙️</span>Settings</div></div>
-      </div>
-    </div>
-
-    <!-- ───────── AFFECTED MARKETS ───────── -->
-    <div class="phone">
-      <div class="phone-label">③ Affected Markets (new)</div>
-      <div class="screen">
-        <div class="notch"></div>
-        <div class="head"><div class="logo"><div class="logo-ic">T</div><div><b>Trump Trading</b><small>Live market intelligence</small></div></div><div class="live"><div class="dot"></div>LIVE</div></div>
-        <div class="body">
-          <div class="ptitle">Affected Markets</div>
-          <div class="psub">Last 24h · 148 related items · avg urgency 46</div>
-          <div style="font-size:11px;color:var(--accent);margin-bottom:12px">Strongest theme: War escalation</div>
-          <div class="agg"><h4>Top affected stocks</h4>
-            <div class="arow"><div class="asym">XOM</div><div class="aname"><div class="n1">ExxonMobil</div><div class="n2">Energy · 355 items · conf 77</div></div><div class="aimp pos">possible positive</div></div>
-            <div class="arow"><div class="asym">LMT</div><div class="aname"><div class="n1">Lockheed Martin</div><div class="n2">Defense · 287 items · conf 81</div></div><div class="aimp pos">possible positive</div></div>
-            <div class="arow"><div class="asym">DAL</div><div class="aname"><div class="n1">Delta Air Lines</div><div class="n2">Airlines · 142 items · conf 60</div></div><div class="aimp neg">possible negative</div></div>
-          </div>
-          <div class="agg"><h4>Top affected ETFs</h4>
-            <div class="arow"><div class="asym">USO</div><div class="aname"><div class="n1">US Oil Fund</div><div class="n2">Oil ETF · 355 items</div></div><div class="aimp pos">possible positive</div></div>
-            <div class="arow"><div class="asym">ITA</div><div class="aname"><div class="n1">US Aerospace & Defense</div><div class="n2">Defense ETF · 287 items</div></div><div class="aimp pos">possible positive</div></div>
-            <div class="arow"><div class="asym">GLD</div><div class="aname"><div class="n1">SPDR Gold Shares</div><div class="n2">Gold ETF · 210 items</div></div><div class="aimp pos">possible positive</div></div>
-          </div>
-          <div class="agg"><h4>Top affected commodities</h4>
-            <div class="arow"><div class="asym">CL</div><div class="aname"><div class="n1">Crude Oil (WTI)</div><div class="n2">355 items</div></div><div class="aimp pos">possible positive</div></div>
-          </div>
-          <div class="agg"><h4>Top affected sectors</h4>
-            <div class="bar"><div class="bl">Energy</div><div class="bt"><div class="bf" style="width:100%"></div></div><div class="bc">283</div></div>
-            <div class="bar"><div class="bl">Defense</div><div class="bt"><div class="bf" style="width:73%"></div></div><div class="bc">207</div></div>
-            <div class="bar"><div class="bl">Airlines</div><div class="bt"><div class="bf" style="width:50%"></div></div><div class="bc">141</div></div>
-          </div>
-          <div class="disc">Informational only. Not financial advice. Market reactions are uncertain. Verify from original sources before trading.</div>
-        </div>
-        <div class="nav"><div><span>📊</span>Dashboard</div><div><span>🔔</span>Alerts</div><div class="on"><span>📈</span>Markets</div><div><span>⭐</span>Watch</div><div><span>⚙️</span>Settings</div></div>
-      </div>
-    </div>
-
-    <!-- ───────── SOURCES ───────── -->
-    <div class="phone">
-      <div class="phone-label">④ Sources — grouped + health</div>
-      <div class="screen">
-        <div class="notch"></div>
-        <div class="head"><div class="logo"><div class="logo-ic">T</div><div><b>Trump Trading</b><small>Live market intelligence</small></div></div><div class="live"><div class="dot"></div>LIVE</div></div>
-        <div class="body">
-          <div class="ptitle">Sources</div>
-          <div class="psub">49 connected · 1 failed · 54 total</div>
-          <div class="grp">Truth Social (Direct)</div>
-          <div class="srow"><div class="sr-t"><div class="sr-n">@realDonaldTrump</div><div class="chip c-on">Connected</div></div><div class="sr-m">OFFICIAL · Reliability 95/100 · 20 items</div></div>
-          <div class="grp">Official Government</div>
-          <div class="srow"><div class="sr-t"><div class="sr-n">White House — News</div><div class="chip c-on">Connected</div></div><div class="sr-m">OFFICIAL · Reliability 95/100 · 30 items</div></div>
-          <div class="srow"><div class="sr-t"><div class="sr-n">White House — Briefing Room</div><div class="chip c-fail">Failed</div></div><div class="sr-m">OFFICIAL · HTTP 404 — feed retired by whitehouse.gov</div></div>
-          <div class="grp">Market & Financial News</div>
-          <div class="srow"><div class="sr-t"><div class="sr-n">Reuters — Trump</div><div class="chip c-on">Connected</div></div><div class="sr-m">NEWS · Reliability 88/100 · 39 items</div></div>
-          <div class="grp">Truth Social via News</div>
-          <div class="srow"><div class="sr-t"><div class="sr-n">Truth Social via News — markets</div><div class="chip c-no">No items</div></div><div class="sr-m">NEWS · Reliability 72/100 · 0 items this poll</div></div>
-        </div>
-        <div class="nav"><div><span>📊</span>Dashboard</div><div><span>🔔</span>Alerts</div><div><span>📈</span>Markets</div><div><span>⭐</span>Watch</div><div class="on"><span>⚙️</span>Settings</div></div>
-      </div>
-    </div>
-
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-body" id="modalBody"></div>
   </div>
 </div>
+
+<nav class="bottom-nav" id="bottomNav"></nav>
+
+<script>
+// ============================ TIME (Cairo UTC+3) ============================
+function cairoNow() { return new Date(new Date().toLocaleString('en-US',{timeZone:'Africa/Cairo'})); }
+function toCairo(d) { return new Date(d.toLocaleString('en-US',{timeZone:'Africa/Cairo'})); }
+function relTime(d) {
+  const m = Math.floor((cairoNow() - toCairo(d)) / 60000);
+  if (isNaN(m)) return '';
+  if (m < 1) return 'just now';
+  if (m < 60) return m + ' min ago';
+  const h = Math.floor(m/60); if (h < 24) return h + 'h ago';
+  return Math.floor(h/24) + 'd ago';
+}
+function cairoClock(d) {
+  d = d || new Date();
+  return d.toLocaleString('en-US',{timeZone:'Africa/Cairo',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+}
+function cairoFull(d) {
+  return d.toLocaleString('en-US',{timeZone:'Africa/Cairo',weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:false}) + ' Cairo';
+}
+
+// ============================ ENRICHMENT ============================
+const KW = {
+  Critical: ['tariff','sanction','war','nuclear','attack','missile','invasion','strike','troops','airstrike','ceasefire','coup','collapse','emergency','military action','bomb'],
+  High: ['trade war','economy','inflation','interest rate','fed','china','russia','iran','ukraine','israel','hamas','hezbollah','nato','oil price','recession','tax','tariffs'],
+  Medium: ['market','stock','deal','negotiate','diplomat','policy','congress','senate','vote','election','trade','dollar','border'],
+};
+function classify(text) {
+  const t = text.toLowerCase();
+  if (KW.Critical.some(k=>t.includes(k))) return 'Critical';
+  if (KW.High.some(k=>t.includes(k))) return 'High';
+  if (KW.Medium.some(k=>t.includes(k))) return 'Medium';
+  return 'Low';
+}
+function urgency(text, risk) {
+  const t = text.toLowerCase();
+  let base = { Critical: 78, High: 58, Medium: 38, Low: 18 }[risk];
+  let hits = 0;
+  KW.Critical.concat(KW.High).forEach(k => { if (t.includes(k)) hits++; });
+  return Math.min(100, base + Math.min(hits * 3, 18));
+}
+const TICKERS = {
+  'oil':'OIL','crude':'OIL','opec':'OIL','petroleum':'OIL',
+  'gold':'GLD','treasury':'TLT','bonds':'TLT','bond':'TLT',
+  'dollar':'DXY','usd':'DXY',
+  'china':'FXI','chinese':'FXI','russia':'RSX','russian':'RSX',
+  'iran':'OIL','ukraine':'OIL','gaza':'OIL','israel':'OIL',
+  'defense':'ITA','military':'ITA','weapons':'ITA','lockheed':'LMT','boeing':'BA','raytheon':'RTX',
+  'apple':'AAPL','tech':'QQQ','nvidia':'NVDA','semiconductor':'SOXX','chip':'SOXX',
+  'bank':'XLF','banks':'XLF','fed':'TLT','interest rate':'TLT','federal reserve':'TLT',
+  'tariff':'SPY','trade':'SPY','economy':'SPY','tariffs':'SPY',
+  'nasdaq':'QQQ','s&p':'SPY','dow':'DIA',
+  'energy':'XLE','gas':'UNG','natural gas':'UNG','steel':'SLX','aluminum':'SLX',
+  'pharma':'XPH','healthcare':'XLV','drug':'XPH',
+  'tesla':'TSLA','crypto':'BITO','bitcoin':'BITO',
+};
+function extractTickers(text) {
+  const t = text.toLowerCase(); const s = new Set();
+  for (const k in TICKERS) if (t.includes(k)) s.add(TICKERS[k]);
+  return Array.from(s).slice(0,5);
+}
+const SECTORS = {
+  'Energy': ['oil','crude','gas','opec','petroleum','energy','pipeline'],
+  'Defense': ['military','defense','weapons','troops','missile','war','lockheed','boeing','raytheon','army','airstrike'],
+  'Technology': ['tech','nvidia','apple','semiconductor','chip','ai','software'],
+  'Financials': ['bank','fed','interest rate','dollar','treasury','federal reserve','wall street'],
+  'Healthcare': ['pharma','healthcare','drug','medicine','hospital'],
+  'Materials': ['steel','aluminum','copper','mining','metals'],
+  'Trade': ['tariff','trade','import','export','china trade','supply chain'],
+};
+function extractSectors(text) {
+  const t = text.toLowerCase(); const s = [];
+  for (const sec in SECTORS) if (SECTORS[sec].some(k=>t.includes(k))) s.push(sec);
+  return s.slice(0,4);
+}
+function category(text) {
+  const t = text.toLowerCase();
+  if (['war','military','troops','missile','attack','nuclear','airstrike','army'].some(k=>t.includes(k))) return 'Military Action';
+  if (['tariff','trade','import','export','economy','inflation'].some(k=>t.includes(k))) return 'Trade & Tariffs';
+  if (['iran','russia','china','ukraine','israel','nato','gaza','hamas'].some(k=>t.includes(k))) return 'Geopolitics';
+  if (['fed','interest rate','dollar','bond','treasury','federal reserve'].some(k=>t.includes(k))) return 'Monetary Policy';
+  if (['sanction','congress','senate','executive order','law','policy'].some(k=>t.includes(k))) return 'Policy & Regulation';
+  return 'Markets';
+}
+function riskColor(r) { return {Critical:'#E53935',High:'#FB8C00',Medium:'#FDD835',Low:'#66BB6A'}[r]||'#3D8BFD'; }
+function isConfirmed(src) { return /white house|associated press|\bap\b|reuters|c-span/i.test(src); }
+
+// ============================ FEEDS ============================
+const GN = 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=';
+function gn(q){ return GN + encodeURIComponent(q); }
+function gsite(site){ return gn('Trump site:' + site + ' when:3d'); }
+
+// Full source catalog (grouped). Every source here is polled and shown on the
+// Sources screen with live status.
+const SOURCES = [
+  // ── Official US government ──
+  { name: 'White House — News',         url: 'https://www.whitehouse.gov/news/feed/',                 group: 'Official', kind: 'official' },
+  { name: 'White House — Actions',      url: 'https://www.whitehouse.gov/presidential-actions/feed/', group: 'Official', kind: 'official' },
+  { name: 'Federal Register — Presidential', url: 'https://www.federalregister.gov/api/v1/documents.rss?conditions%5Btype%5D%5B%5D=PRESDOCU&order=newest', group: 'Official', kind: 'official' },
+  // ── Market & financial ──
+  { name: 'CNBC — Top News',            url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html', group: 'Market', kind: 'news' },
+  { name: 'CNBC — Economy',             url: 'https://www.cnbc.com/id/20910258/device/rss/rss.html',  group: 'Market', kind: 'news' },
+  { name: 'MarketWatch — Top',          url: 'https://feeds.content.dowjones.io/public/rss/mw_topstories', group: 'Market', kind: 'news' },
+  { name: 'Yahoo Finance',              url: 'https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC&region=US&lang=en-US', group: 'Market', kind: 'news' },
+  { name: 'Reuters · Trump',            url: gsite('reuters.com'),     group: 'Market', kind: 'news' },
+  { name: 'CNBC · Trump',               url: gsite('cnbc.com'),        group: 'Market', kind: 'news' },
+  { name: 'MarketWatch · Trump',        url: gsite('marketwatch.com'), group: 'Market', kind: 'news' },
+  // ── General reliable news ──
+  { name: 'Google News · Trump',        url: gn('Trump when:1d'),      group: 'General', kind: 'news' },
+  { name: 'AP · Trump',                 url: gsite('apnews.com'),      group: 'General', kind: 'news' },
+  { name: 'BBC · Trump',                url: gsite('bbc.com'),         group: 'General', kind: 'news' },
+  { name: 'CNN · Trump',                url: gsite('cnn.com'),         group: 'General', kind: 'news' },
+  { name: 'Fox News · Trump',           url: gsite('foxnews.com'),     group: 'General', kind: 'news' },
+  { name: 'The Guardian · Trump',       url: gsite('theguardian.com'), group: 'General', kind: 'news' },
+  { name: 'Politico · Trump',           url: gsite('politico.com'),    group: 'General', kind: 'news' },
+  { name: 'Axios · Trump',              url: gsite('axios.com'),       group: 'General', kind: 'news' },
+  { name: 'The Hill · Trump',           url: gsite('thehill.com'),     group: 'General', kind: 'news' },
+  { name: 'NPR · Trump',                url: gsite('npr.org'),         group: 'General', kind: 'news' },
+  { name: 'CBS News · Trump',           url: gsite('cbsnews.com'),     group: 'General', kind: 'news' },
+  { name: 'ABC News · Trump',           url: gsite('abcnews.go.com'),  group: 'General', kind: 'news' },
+  { name: 'NBC News · Trump',           url: gsite('nbcnews.com'),     group: 'General', kind: 'news' },
+  { name: 'New York Times · Trump',     url: gsite('nytimes.com'),     group: 'General', kind: 'news' },
+  { name: 'Washington Post · Trump',    url: gsite('washingtonpost.com'), group: 'General', kind: 'news' },
+  // ── International / geopolitical ──
+  { name: 'Al Jazeera · Trump',         url: gsite('aljazeera.com'),   group: 'Geopolitical', kind: 'news' },
+  { name: 'France24 · Trump',           url: gsite('france24.com'),    group: 'Geopolitical', kind: 'news' },
+  { name: 'DW · Trump',                 url: gsite('dw.com'),          group: 'Geopolitical', kind: 'news' },
+  { name: 'Wars & Conflicts',           url: gn('war OR conflict OR ceasefire OR strike when:1d'), group: 'Geopolitical', kind: 'news' },
+  { name: 'Middle East',                url: gn('Gaza OR Israel OR Iran when:1d'),  group: 'Geopolitical', kind: 'news' },
+  { name: 'Ukraine / Russia',           url: gn('Ukraine Russia when:1d'),          group: 'Geopolitical', kind: 'news' },
+  // ── Truth Social via News ──
+  { name: 'Truth Social via News — core',    url: gn('Trump "Truth Social" when:3d'), group: 'Truth Social via News', kind: 'news' },
+  { name: 'Truth Social via News — markets', url: gn('Trump "Truth Social" (tariff OR oil OR crypto OR stocks OR Fed OR sanctions) when:3d'), group: 'Truth Social via News', kind: 'news' },
+];
+
+// CORS proxies, tried in order. allorigins is most reliable; rss2json last
+// because its free tier rate-limits (the 503s you saw on Google News / AP).
+const PROXIES = [
+  { name: 'allorigins-raw', kind: 'xml',     build: u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u) },
+  { name: 'allorigins-get', kind: 'wrapped', build: u => 'https://api.allorigins.win/get?url=' + encodeURIComponent(u) },
+  { name: 'codetabs',       kind: 'xml',     build: u => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u) },
+  { name: 'corsproxy',      kind: 'xml',     build: u => 'https://corsproxy.io/?url=' + encodeURIComponent(u) },
+  { name: 'rss2json',       kind: 'json',    build: u => 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(u) + '&count=25' },
+];
+
+function parseXmlItems(text) {
+  const xml = new DOMParser().parseFromString(text, 'text/xml');
+  const ch = xml.querySelector('channel > title') || xml.querySelector('feed > title');
+  const src = ch ? ch.textContent : '';
+  let nodes = Array.from(xml.querySelectorAll('item'));
+  if (!nodes.length) nodes = Array.from(xml.querySelectorAll('entry')); // Atom
+  return nodes.slice(0, 25).map(it => {
+    const g = sel => { const e = it.querySelector(sel); return e ? e.textContent : ''; };
+    const link = it.querySelector('link');
+    const href = link ? (link.getAttribute('href') || link.textContent) : '';
+    return mkItem(g('title'), g('description') || g('summary') || g('content'), g('pubDate') || g('updated') || g('published'), href, src);
+  });
+}
+async function fetchVia(proxy, url) {
+  const r = await fetch(proxy.build(url), { signal: AbortSignal.timeout(7000) });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  if (proxy.kind === 'json') {
+    const d = await r.json();
+    if (d.status !== 'ok') throw new Error(d.message || 'rss2json error');
+    return (d.items || []).map(it => mkItem(it.title, it.description || it.content, it.pubDate, it.link, d.feed && d.feed.title));
+  }
+  let text;
+  if (proxy.kind === 'wrapped') { const d = await r.json(); text = d.contents || ''; }
+  else text = await r.text();
+  const items = parseXmlItems(text);
+  if (!items.length) throw new Error('empty/unparseable');
+  return items;
+}
+function mkItem(title, desc, pub, link, src) {
+  return {
+    title: (title||'').replace(/<[^>]+>/g,'').trim(),
+    summary: (desc||'').replace(/<[^>]+>/g,'').trim().slice(0,240),
+    pubDate: new Date(pub||Date.now()), link: link||'#', source: (src||'').replace(/<[^>]+>/g,'').trim() || 'News',
+  };
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+// Rotate the proxy start position per feed so we don't always hammer the same
+// proxy first (that's what trips the free-tier rate limits → HTTP 422/429/503).
+let proxyRotation = 0;
+function proxyOrder() {
+  const n = PROXIES.length;
+  const start = (proxyRotation++) % n;
+  return PROXIES.slice(start).concat(PROXIES.slice(0, start));
+}
+async function fetchFeed(feed, attempt) {
+  attempt = attempt || 0;
+  if (attempt > 0) await sleep(700 + Math.random() * 600);
+  let lastErr = '';
+  for (const p of proxyOrder()) {
+    try { const items = await fetchVia(p, feed.url); return { feed, items, status: items.length ? 'connected' : 'no-items' }; }
+    catch(e) { lastErr = (e && e.message) || 'error'; }
+  }
+  // One transient retry — keep the budget small so the feed never blocks the UI.
+  if (attempt < 1) return fetchFeed(feed, attempt + 1);
+  return { feed, items: [], status: 'failed', error: lastErr };
+}
+// Limited-concurrency map; calls onResult(result, index) as EACH feed settles so
+// the UI can render progressively instead of waiting for every feed.
+async function poolMap(arr, n, fn, onResult) {
+  const out = new Array(arr.length);
+  let i = 0;
+  async function worker() {
+    while (i < arr.length) {
+      const idx = i++;
+      out[idx] = await fn(arr[idx]);
+      if (onResult) { try { onResult(out[idx], idx); } catch (e) {} }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(n, arr.length) }, worker));
+  return out;
+}
+
+// ============================ STATE ============================
+const State = {
+  alerts: [], feedHealth: [], usingFallback: false,
+  route: location.hash.replace('#','') || 'dashboard',
+  riskFilter: 'all', categoryFilter: null, search: '',
+  feedLimit: 25,
+  watchlist: JSON.parse(localStorage.getItem('tt_watchlist') || '["OIL","SPY","DXY"]'),
+  lastUpdated: null, loading: true, error: null,
+  refreshMs: parseInt(localStorage.getItem('tt_refresh') || '120000'),
+};
+function saveWatchlist() { localStorage.setItem('tt_watchlist', JSON.stringify(State.watchlist)); }
+
+// ============================ LOAD ============================
+// Turn accumulated raw feed items into enriched, deduped, sorted alerts.
+function buildAlertsFrom(rawItems) {
+  let items = rawItems;
+  const trumpItems = items.filter(it => /trump|white house|president|tariff|maga|mar-a-lago|administration/i.test(it.title + it.summary));
+  State.usingFallback = trumpItems.length < 3;
+  if (!State.usingFallback) items = trumpItems;
+
+  const seen = new Set();
+  items = items.filter(it => { const k = it.title.toLowerCase().slice(0,60); if (seen.has(k)) return false; seen.add(k); return true; });
+
+  State.alerts = items.map((it, i) => {
+    const txt = it.title + ' ' + it.summary;
+    const risk = classify(txt);
+    return {
+      id: 'a' + i + '_' + it.pubDate.getTime(),
+      title: it.title, summary: it.summary, pubDate: it.pubDate, link: it.link, source: it.source,
+      risk: risk,
+      urgency: urgency(txt, risk),
+      tickers: extractTickers(txt),
+      sectors: extractSectors(txt),
+      category: category(txt),
+      confirmed: isConfirmed(it.source),
+    };
+  }).sort((a, b) => b.pubDate - a.pubDate).slice(0, 60);
+}
+
+let loadJobId = 0;
+async function loadFeeds() {
+  const job = ++loadJobId;            // cancels stale renders if a newer load starts
+  State.loading = true;
+  State.error = null;
+  renderRefreshBar();
+
+  const acc = [];
+  const health = SOURCES.map(s => ({ name: s.name, url: s.url, group: s.group, kind: s.kind, status: 'pending', count: 0 }));
+  State.feedHealth = health;
+  let lastRender = 0;
+
+  // Poll the full catalog (4 at a time) and render progressively as each feed
+  // arrives — content shows up immediately instead of waiting for all 30+ feeds.
+  await poolMap(SOURCES, 4, (f) => fetchFeed(f, 0), (r, idx) => {
+    if (job !== loadJobId) return;
+    health[idx] = { name: r.feed.name, url: r.feed.url, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error };
+    if (r.items.length) for (const it of r.items) acc.push(it);
+    const now = Date.now();
+    if (now - lastRender > 300) {
+      lastRender = now;
+      buildAlertsFrom(acc);
+      State.lastUpdated = new Date();
+      render();
+    }
+  });
+
+  if (job !== loadJobId) return;       // a newer refresh superseded this one
+  buildAlertsFrom(acc);
+  State.error = acc.length ? null : 'Could not reach any news feeds. Check your internet connection or try Refresh.';
+  State.lastUpdated = new Date();
+  State.loading = false;
+  render();
+}
+
+// ============================ COUNTDOWN ============================
+let nextRefreshAt = Date.now() + State.refreshMs;
+function tickCountdown() {
+  const remaining = Math.max(0, Math.round((nextRefreshAt - Date.now())/1000));
+  const el = document.getElementById('countdown');
+  if (el) el.textContent = remaining + 's';
+}
+function scheduleRefresh() { nextRefreshAt = Date.now() + State.refreshMs; }
+setInterval(() => {
+  tickCountdown();
+  if (Date.now() >= nextRefreshAt && !State.loading) { scheduleRefresh(); loadFeeds(); }
+}, 1000);
+
+// ============================ RENDER ============================
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function render() {
+  renderRefreshBar();
+  renderNav();
+  const app = document.getElementById('app');
+  if (State.loading && !State.alerts.length) { app.innerHTML = skeletonPage(); return; }
+  if (State.error && !State.alerts.length) { app.innerHTML = '<div class="page"><div class="status-msg error">' + esc(State.error) + '</div></div>'; return; }
+  switch (State.route) {
+    case 'dashboard': app.innerHTML = renderDashboard(); break;
+    case 'alerts':    app.innerHTML = renderAlerts(); break;
+    case 'watchlist': app.innerHTML = renderWatchlist(); break;
+    case 'sources':   app.innerHTML = renderSources(); break;
+    case 'settings':  app.innerHTML = renderSettings(); break;
+    default:          app.innerHTML = renderDashboard();
+  }
+}
+
+function renderRefreshBar() {
+  const el = document.getElementById('lastUpdated');
+  if (!el) return;
+  if (State.loading) { el.innerHTML = '<span class="mini-spin"></span> Fetching live feeds&hellip;'; return; }
+  if (!State.lastUpdated) return;
+  const mode = State.usingFallback ? '⚠️ Wars & conflicts (no Trump news)' : '✅ Trump news';
+  el.innerHTML = mode + ' · updated ' + cairoClock(State.lastUpdated) + ' Cairo';
+}
+
+function renderDashboard() {
+  const a = State.alerts;
+  const counts = { Critical:0, High:0, Medium:0, Low:0 };
+  a.forEach(x => counts[x.risk]++);
+  const avgUrgency = a.length ? Math.round(a.reduce((s,x)=>s+x.urgency,0)/a.length) : 0;
+  const meterColor = avgUrgency >= 70 ? '#E53935' : avgUrgency >= 50 ? '#FB8C00' : avgUrgency >= 30 ? '#FDD835' : '#66BB6A';
+  const meterLabel = avgUrgency >= 70 ? 'ELEVATED RISK' : avgUrgency >= 50 ? 'HEIGHTENED' : avgUrgency >= 30 ? 'MODERATE' : 'CALM';
+
+  const secCount = {};
+  a.forEach(x => x.sectors.forEach(s => secCount[s] = (secCount[s]||0)+1));
+  const topSectors = Object.entries(secCount).sort((x,y)=>y[1]-x[1]).slice(0,6);
+  const maxSec = topSectors.length ? topSectors[0][1] : 1;
+
+  const tkCount = {};
+  a.forEach(x => x.tickers.forEach(t => tkCount[t] = (tkCount[t]||0)+1));
+  const topTickers = Object.entries(tkCount).sort((x,y)=>y[1]-x[1]).slice(0,8);
+  const maxTk = topTickers.length ? topTickers[0][1] : 1;
+
+  const highImpact = a.filter(x => x.risk==='Critical'||x.risk==='High').slice(0,4);
+
+  return '<div class="page">' +
+    '<div class="page-title">Dashboard</div>' +
+    '<div class="page-subtitle">Aggregated from ' + a.length + ' live items · ' + cairoFull(State.lastUpdated||new Date()) + '</div>' +
+    '<div class="meter-card">' +
+      '<div class="meter-head"><h3>Market Risk Meter</h3><div class="meter-score" style="color:'+meterColor+'">'+avgUrgency+'</div></div>' +
+      '<div class="meter-track"><div class="meter-fill" style="width:'+avgUrgency+'%;background:'+meterColor+'"></div></div>' +
+      '<div class="meter-labels"><span>Calm</span><span style="color:'+meterColor+';font-weight:700">'+meterLabel+'</span><span>Critical</span></div>' +
+    '</div>' +
+    '<div class="stat-grid">' +
+      '<div class="stat-card"><div class="stat-val" style="color:var(--critical)">'+counts.Critical+'</div><div class="stat-lbl">Critical</div></div>' +
+      '<div class="stat-card"><div class="stat-val" style="color:var(--high)">'+counts.High+'</div><div class="stat-lbl">High</div></div>' +
+      '<div class="stat-card"><div class="stat-val" style="color:var(--medium)">'+counts.Medium+'</div><div class="stat-lbl">Medium</div></div>' +
+    '</div>' +
+    (highImpact.length ? '<div class="section-head">⚡ High-impact now</div>' + highImpact.map(alertCardHtml).join('') : '') +
+    '<div class="section-head">Top affected sectors</div>' +
+    (topSectors.length ? topSectors.map(e => '<div class="bar-row"><div class="bar-label">'+esc(e[0])+'</div><div class="bar-track"><div class="bar-fill" style="width:'+(e[1]/maxSec*100)+'%"></div></div><div class="bar-count">'+e[1]+'</div></div>').join('') : '<div class="status-msg">No sector data yet.</div>') +
+    '<div class="section-head">Most mentioned tickers</div>' +
+    (topTickers.length ? topTickers.map(e => '<div class="bar-row"><div class="bar-label"><span class="ticker '+(State.watchlist.includes(e[0])?'watched':'')+'">'+e[0]+'</span></div><div class="bar-track"><div class="bar-fill" style="width:'+(e[1]/maxTk*100)+'%"></div></div><div class="bar-count">'+e[1]+'</div></div>').join('') : '<div class="status-msg">No ticker data yet.</div>') +
+  '</div>';
+}
+
+function renderAlerts() {
+  let list = State.alerts;
+  if (State.riskFilter !== 'all') list = list.filter(x => x.risk === State.riskFilter);
+  if (State.categoryFilter) list = list.filter(x => x.category === State.categoryFilter);
+  if (State.search) { const q = State.search.toLowerCase(); list = list.filter(x => (x.title+x.summary).toLowerCase().includes(q)); }
+  const shown = list.slice(0, State.feedLimit);
+
+  return '<div class="page">' +
+    '<div class="page-title">Live Alerts</div>' +
+    '<div class="page-subtitle">' + list.length + ' alerts' + (State.categoryFilter?' · '+esc(State.categoryFilter):'') + ' · auto-refresh every ' + (State.refreshMs/1000) + 's</div>' +
+    '<input class="search-box" placeholder="Search alerts…" value="'+esc(State.search)+'" oninput="onSearch(this.value)">' +
+    '<div class="filters">' +
+      ['all','Critical','High','Medium','Low'].map(r => '<button class="filter-btn '+(State.riskFilter===r?'active':'')+'" data-risk="'+r+'" onclick="setRiskFilter(\''+r+'\')">'+(r==='all'?'All':r)+'</button>').join('') +
+    '</div>' +
+    (State.categoryFilter ? '<div style="margin-bottom:12px"><span class="chip removable" onclick="setCategory(null)">'+esc(State.categoryFilter)+'</span></div>' : '') +
+    (shown.length ? shown.map(alertCardHtml).join('') : '<div class="status-msg">No alerts match this filter.</div>') +
+    (list.length > State.feedLimit ? '<div style="text-align:center;margin-top:8px"><button class="filter-btn" onclick="loadMore()">Load more ('+(list.length - State.feedLimit)+' more)</button></div>' : '') +
+  '</div>';
+}
+
+function alertCardHtml(a) {
+  return '<div class="card" onclick="openDetail(\''+a.id+'\')">' +
+    '<div class="card-accent" style="background:'+riskColor(a.risk)+'"></div>' +
+    '<div class="card-body">' +
+      '<div class="card-top"><div class="card-title">'+esc(a.title)+'</div><div class="risk-pill risk-'+a.risk+'">'+a.risk+'</div></div>' +
+      '<div class="card-source"><div class="source-dot"></div>'+esc(a.source)+' · '+esc(a.category)+' · <span class="'+(a.confirmed?'confirmed':'unconfirmed')+'">'+(a.confirmed?'✓ confirmed':'○ unconfirmed')+'</span></div>' +
+      (a.summary ? '<div class="card-summary">'+esc(a.summary)+'</div>' : '') +
+      '<div class="card-footer">' +
+        '<div class="tickers">'+a.tickers.map(t=>'<span class="ticker '+(State.watchlist.includes(t)?'watched':'')+'">'+t+'</span>').join('')+'</div>' +
+        '<div class="card-time" title="'+cairoFull(a.pubDate)+'">🕐 '+relTime(a.pubDate)+' · Cairo</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function renderWatchlist() {
+  const wl = State.watchlist;
+  const matched = State.alerts.filter(a => a.tickers.some(t => wl.includes(t)));
+  return '<div class="page">' +
+    '<div class="page-title">Watchlist</div>' +
+    '<div class="page-subtitle">' + wl.length + ' tickers tracked · ' + matched.length + ' matching alerts</div>' +
+    '<div class="chip-row" style="margin-bottom:8px">' +
+      (wl.map(t => '<span class="chip removable" onclick="removeTicker(\''+t+'\')">'+t+'</span>').join('') || '<span class="set-value">No tickers yet.</span>') +
+    '</div>' +
+    '<input class="search-box" id="tickerInput" placeholder="Add ticker (e.g. OIL, SPY, NVDA) then Enter" onkeydown="if(event.key===\'Enter\')addTicker(this.value)">' +
+    '<div class="section-head">Alerts matching your watchlist</div>' +
+    (matched.length ? matched.map(alertCardHtml).join('') : '<div class="status-msg">No current alerts mention your watchlist tickers.<br>They\'ll appear here as news breaks.</div>') +
+  '</div>';
+}
+
+// Map a browser-side fetch error to a precise, honest reason.
+function sourceReason(s) {
+  if (s.status === 'connected') return 'OK · ' + s.count + ' items fetched';
+  if (s.status === 'pending') return 'Checking…';
+  const e = s.error || '';
+  if (s.status === 'no-items') return 'Reached, but 0 items this poll';
+  if (/HTTP 4?22/.test(e)) return 'HTTP 422 — CORS proxy could not process this feed (rate-limited)';
+  if (/HTTP 503|HTTP 502/.test(e)) return 'HTTP 503 — proxy/source temporarily unavailable';
+  if (/HTTP 429/.test(e)) return 'HTTP 429 — CORS proxy rate-limited';
+  if (/HTTP 403|HTTP 401/.test(e)) return 'HTTP 403 — blocked by proxy/source';
+  if (/empty|unparseable/.test(e)) return 'Parser error — proxy returned no items';
+  if (/timed out|timeout|aborted/i.test(e)) return 'Timed out via CORS proxy';
+  if (/Failed to fetch|NetworkError|load failed/i.test(e)) return 'Failed to fetch — all CORS proxies refused (browser limit)';
+  return e ? ('Failed — ' + e) : 'Failed to fetch';
+}
+function retrySource(idx) {
+  const s = State.feedHealth[idx]; if (!s || !s.url) return;
+  s.status = 'pending'; s.error = ''; render();
+  fetchFeed({ name: s.name, url: s.url, group: s.group, kind: s.kind }, 0).then(r => {
+    State.feedHealth[idx] = { name: r.feed.name, url: r.feed.url, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error };
+    if (r.items.length) { State.lastUpdated = new Date(); }
+    render();
+  });
+}
+
+function renderSources() {
+  const h = State.feedHealth;
+  const cls = s => s==='connected'?'src-connected':(s==='failed'||s==='blocked')?'src-failed':'src-noitems';
+  const lbl = s => s==='connected'?'Connected':s==='pending'?'Checking':(s==='no-items'?'No items':'Failed');
+  const connected = h.filter(s => s.status==='connected').length;
+  const failed = h.filter(s => s.status==='failed').length;
+
+  const GROUP_ORDER = ['Official','Market','General','Geopolitical','Truth Social via News'];
+  const rowHtml = (s, gi) => {
+    const idx = State.feedHealth.indexOf(s);
+    const retry = (s.status !== 'connected' && s.status !== 'pending')
+      ? '<span onclick="event.stopPropagation();retrySource('+idx+')" style="cursor:pointer;color:var(--accent);font-size:10px;font-weight:700;border:1px solid var(--accent);border-radius:12px;padding:2px 8px;margin-left:6px">↻ Retry</span>' : '';
+    return '<div class="src-row"><div class="src-top"><div class="src-name">'+esc(s.name)+
+    (s.kind==='official'?' <span style="color:var(--low);font-size:9px;font-weight:700">OFFICIAL</span>':'')+
+    '</div><div style="display:flex;align-items:center"><div class="src-status '+cls(s.status)+'">'+lbl(s.status)+'</div>'+retry+'</div></div>'+
+    '<div class="src-meta">'+esc(sourceReason(s))+'</div></div>';
+  };
+
+  let groupsHtml = '';
+  for (const g of GROUP_ORDER) {
+    const list = h.filter(s => s.group === g);
+    if (!list.length) continue;
+    groupsHtml += '<div class="section-head">'+esc(g)+'</div>' + list.map(rowHtml).join('');
+  }
+  // any groups not in the explicit order
+  const known = new Set(GROUP_ORDER);
+  const others = h.filter(s => !known.has(s.group));
+  if (others.length) groupsHtml += '<div class="section-head">Other</div>' + others.map(rowHtml).join('');
+
+  return '<div class="page">' +
+    '<div class="page-title">Sources</div>' +
+    '<div class="page-subtitle">' + (h.length ? (connected+' connected · '+failed+' failed · '+h.length+' total') : 'Live feed health') +
+      ' · last checked ' + (State.lastUpdated?cairoClock(State.lastUpdated)+' Cairo':'—') + '</div>' +
+    '<div class="src-row" style="border-color:rgba(61,139,253,.3);background:rgba(61,139,253,.06)"><div class="src-meta" style="color:var(--text2)">ℹ️ This is a <b>backend-less web preview</b>. Browsers can\'t fetch RSS cross-origin, so feeds are pulled through free public CORS proxies that rate-limit — a source marked FAILED here (HTTP 422/503) is the <b>proxy</b> failing, not the source. The real backend fetches every one of these server-side at HTTP 200. Tap <b>↻ Retry</b> on any failed source.</div></div>' +
+    '<div class="section-head">Truth Social (Direct)</div>' +
+    '<div class="src-row" style="border-color:rgba(229,57,53,.3)"><div class="src-top"><div class="src-name">Truth Social — @realDonaldTrump</div><div class="src-status src-failed">Unavailable</div></div><div class="src-meta">No public real-time API. Cloudflare blocks browser/Node fetch. Works only in the backend via a system-curl workaround — not reachable from this web preview.</div></div>' +
+    (h.length ? groupsHtml : '<div class="status-msg">Loading sources…</div>') +
+  '</div>';
+}
+
+function renderSettings() {
+  return '<div class="page">' +
+    '<div class="page-title">Settings</div>' +
+    '<div class="page-subtitle">Personal-use mode · single local user</div>' +
+    '<div class="section-head">Profile</div>' +
+    '<div class="set-row"><div class="set-label">Andrew</div><div class="set-value">personal mode</div></div>' +
+    '<div class="section-head">Live feed</div>' +
+    '<div class="set-row"><div class="set-label">Refresh interval</div>' +
+      '<select class="interval-select" onchange="setRefresh(this.value)">' +
+        '<option value="30000" '+(State.refreshMs==30000?'selected':'')+'>Every 30 sec</option>' +
+        '<option value="60000" '+(State.refreshMs==60000?'selected':'')+'>Every 1 min</option>' +
+        '<option value="120000" '+(State.refreshMs==120000?'selected':'')+'>Every 2 min</option>' +
+        '<option value="300000" '+(State.refreshMs==300000?'selected':'')+'>Every 5 min</option>' +
+      '</select></div>' +
+    '<div class="set-row"><div class="set-label">Refresh now</div><button class="filter-btn" onclick="manualRefresh()">↻ Refresh</button></div>' +
+    '<div class="section-head">Diagnostics</div>' +
+    '<div class="set-row"><div class="set-label">Time zone</div><div class="set-value">Africa/Cairo (UTC+3)</div></div>' +
+    '<div class="set-row"><div class="set-label">Feeds connected</div><div class="set-value">'+State.feedHealth.filter(s=>s.status==='connected').length+' / '+State.feedHealth.length+'</div></div>' +
+    '<div class="set-row"><div class="set-label">Total alerts loaded</div><div class="set-value">'+State.alerts.length+'</div></div>' +
+    '<div class="set-row"><div class="set-label">Mode</div><div class="set-value">'+(State.usingFallback?'Wars & conflicts (fallback)':'Trump news')+'</div></div>' +
+    '<div class="section-head">Legal</div>' +
+    '<div class="status-msg" style="text-align:left;padding:8px 0">⚠️ For informational purposes only. Not financial advice. Risk scores are automated estimates from news keywords, not verified analysis.</div>' +
+  '</div>';
+}
+
+function openDetail(id) {
+  const a = State.alerts.find(x => x.id === id); if (!a) return;
+  document.getElementById('modalBody').innerHTML =
+    '<div class="detail-accent" style="background:'+riskColor(a.risk)+'"></div>' +
+    '<div class="card-top" style="margin-bottom:14px"><div style="font-size:18px;font-weight:700;line-height:1.35">'+esc(a.title)+'</div><div class="risk-pill risk-'+a.risk+'">'+a.risk+'</div></div>' +
+    '<div class="detail-row"><div class="detail-label">Statement / Headline</div><div class="detail-statement">'+esc(a.summary || a.title)+'</div><a class="open-link" href="'+a.link+'" target="_blank">Open original article ↗</a></div>' +
+    '<div class="stat-grid" style="grid-template-columns:1fr 1fr">' +
+      '<div class="stat-card"><div class="stat-val" style="font-size:20px;color:'+riskColor(a.risk)+'">'+a.urgency+'</div><div class="stat-lbl">Urgency</div></div>' +
+      '<div class="stat-card"><div class="stat-val" style="font-size:15px;color:'+(a.confirmed?'var(--low)':'var(--medium)')+'">'+(a.confirmed?'Confirmed':'Unconfirmed')+'</div><div class="stat-lbl">Status</div></div>' +
+    '</div>' +
+    '<div class="detail-row"><div class="detail-label">Category</div><div class="detail-val">'+esc(a.category)+'</div></div>' +
+    '<div class="detail-row"><div class="detail-label">Source</div><div class="detail-val">'+esc(a.source)+'</div><div class="reliability-bar"><div class="reliability-fill" style="width:'+(a.confirmed?85:55)+'%"></div></div></div>' +
+    (a.sectors.length ? '<div class="detail-row"><div class="detail-label">Affected sectors</div><div class="chip-row">'+a.sectors.map(s=>'<span class="chip">'+esc(s)+'</span>').join('')+'</div></div>' : '') +
+    (a.tickers.length ? '<div class="detail-row"><div class="detail-label">Affected tickers</div><div class="tickers">'+a.tickers.map(t=>'<span class="ticker '+(State.watchlist.includes(t)?'watched':'')+'" onclick="addTicker(\''+t+'\')">'+t+' '+(State.watchlist.includes(t)?'✓':'+')+'</span>').join('')+'</div><div class="set-value" style="margin-top:6px">Tap a ticker to add it to your watchlist</div></div>' : '') +
+    '<div class="detail-row"><div class="detail-label">Detected</div><div class="detail-val">🕐 '+relTime(a.pubDate)+' · '+cairoFull(a.pubDate)+'</div></div>';
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+// ============================ ACTIONS ============================
+function go(route) { State.route = route; location.hash = route; window.scrollTo(0,0); render(); }
+function setRiskFilter(r) { State.riskFilter = r; State.feedLimit = 25; render(); }
+function setCategory(c) { State.categoryFilter = c; render(); }
+function onSearch(v) { State.search = v; render(); const i=document.querySelector('.search-box'); if(i){i.focus();i.setSelectionRange(v.length,v.length);} }
+function loadMore() { State.feedLimit += 25; render(); }
+function addTicker(t) { t=(t||'').trim().toUpperCase(); if(t && !State.watchlist.includes(t)){State.watchlist.push(t); saveWatchlist();} render(); }
+function removeTicker(t) { State.watchlist = State.watchlist.filter(x=>x!==t); saveWatchlist(); render(); }
+function setRefresh(ms) { State.refreshMs = parseInt(ms); localStorage.setItem('tt_refresh', ms); scheduleRefresh(); render(); }
+function manualRefresh() { scheduleRefresh(); loadFeeds(); }
+
+function renderNav() {
+  const items = [
+    { r:'dashboard', i:'📊', l:'Dashboard' },
+    { r:'alerts', i:'🔔', l:'Alerts' },
+    { r:'watchlist', i:'⭐', l:'Watchlist' },
+    { r:'sources', i:'📡', l:'Sources' },
+    { r:'settings', i:'⚙️', l:'Settings' },
+  ];
+  const critCount = State.alerts.filter(a=>a.risk==='Critical').length;
+  document.getElementById('bottomNav').innerHTML = items.map(it =>
+    '<div class="nav-item '+(State.route===it.r?'active':'')+'" onclick="go(\''+it.r+'\')">' +
+      '<span class="nav-icon">'+it.i+'</span>'+it.l +
+      (it.r==='alerts' && critCount ? '<span class="nav-badge">'+critCount+'</span>' : '') +
+    '</div>').join('');
+}
+
+function skeletonPage() {
+  let s = '<div class="page">';
+  for (let i=0;i<6;i++) s += '<div class="skeleton"><div class="skel-line w40"></div><div class="skel-line w80"></div><div class="skel-line w60"></div></div>';
+  return s + '</div>';
+}
+
+window.addEventListener('hashchange', () => { State.route = location.hash.replace('#','')||'dashboard'; render(); });
+
+// ============================ BOOT ============================
+render();
+loadFeeds();
+scheduleRefresh();
+</script>
+<script>
+// ============================ PWA service worker ============================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      // When a new version is found, activate it immediately and reload once so
+      // the user never sees a stale/old cached page.
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener('statechange', () => {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+            nw.postMessage('skipWaiting');
+          }
+        });
+      });
+    }).catch(() => {});
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloaded) return; reloaded = true; location.reload();
+    });
+  });
+}
+</script>
 </body>
 </html>
