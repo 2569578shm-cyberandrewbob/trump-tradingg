@@ -21,7 +21,10 @@ const SOURCE_SELECT = `
          h.total_new_inserted  AS "totalNewInserted",
          h.poll_count          AS "pollCount",
          h.error_count         AS "errorCount",
-         ROUND(COALESCE(h.avg_latency_ms, 0))::int AS "avgLatencyMs"
+         ROUND(COALESCE(h.avg_latency_ms, 0))::int AS "avgLatencyMs",
+         (SELECT rs.source_url FROM raw_statements rs
+            WHERE rs.source_id = s.id AND rs.source_url IS NOT NULL
+            ORDER BY rs.detected_at DESC NULLS LAST LIMIT 1) AS "sampleUrl"
   FROM sources s
   LEFT JOIN source_reliability sr ON sr.source_id = s.id
   LEFT JOIN source_health h ON h.source_id = s.id`;
