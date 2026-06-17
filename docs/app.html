@@ -890,10 +890,13 @@ async function loadMarketNews(){
   OFFICIAL_FEEDS.forEach(f=>feeds.push({ category:f.cat, source:f.source, url:f.url }));
   State.mHealth = feeds.map(f=>({ name:f.source+' · '+f.category, status:'pending', count:0 }));
   if(State.route==='news') render();
-  const acc=[];
+  const acc=[]; let lastR=0;
   await poolMap(feeds, 3, f=>fetchFeed(f,0), (r,idx)=>{
     State.mHealth[idx]={ name:feeds[idx].source+' · '+feeds[idx].category, status:r.status, count:r.items.length, error:r.error };
     for(const it of (r.items||[])) acc.push(normalizeNews(it, feeds[idx].category, null, feeds[idx].source));
+    // progressive: surface items as each feed settles instead of waiting for all
+    State.mNews = dedupNews(acc.slice().sort((a,b)=>b.pubDate-a.pubDate)).slice(0,250);
+    const now=Date.now(); if(State.route==='news' && now-lastR>350){ lastR=now; State.mLastUpdated=new Date(); render(); }
   });
   State.mNews = dedupNews(acc.sort((a,b)=>b.pubDate-a.pubDate)).slice(0,250);
   State.mLastUpdated=new Date(); State.mLoading=false;
@@ -934,7 +937,8 @@ function onNewsSearch(v){ State.newsSearch=v; render(); const i=document.getElem
 
 function renderNews(){
   if(!State.mLoaded && !State.mLoading) loadMarketNews();
-  if(!State.pLoaded && !State.pLoading) loadPortfolioNews();
+  // portfolio (34 ticker feeds) loads lazily only when the "My Stocks" filter is
+  // chosen — avoids flooding the free proxies on first paint.
   const conn=State.mHealth.filter(h=>h.status==='connected').length, fail=State.mHealth.filter(h=>h.status==='failed').length;
   const all=combinedNews(); const list=newsFiltered();
   const loading = State.mLoading || State.pLoading;
@@ -1354,10 +1358,13 @@ function skeletonPage() {
 window.addEventListener('hashchange', () => { State.route = location.hash.replace('#','')||'dashboard'; render(); });
 
 // ============================ BOOT ============================
+// Stagger network so the free CORS proxies aren't flooded (each load is a batch
+// of feeds). Primary view (Market News) loads first; the rest load lazily when
+// their tabs/filters open, with a delayed kickstart as a fallback.
 render();
-loadMarketNews();      // market/economy/sector news hub (primary)
-loadPortfolioNews();   // per-watchlist-ticker news
-loadFeeds();           // Trump/market alerts (kept as one category)
+loadMarketNews();                               // News hub (default view)
+setTimeout(loadFeeds, 9000);                                            // Trump alerts (Dashboard/Trump/Markets)
+setTimeout(() => { if(!State.pLoaded) loadPortfolioNews(); }, 20000);    // My Stocks ticker news (also lazy on tab open)
 scheduleRefresh();
 </script>
 <script>
