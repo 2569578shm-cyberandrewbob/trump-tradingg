@@ -923,7 +923,7 @@ function trumpAsNews(){
     return { title:a.title, summary:a.summary, source:pubFrom(a.title,a.source), link:a.link, pubDate:a.pubDate,
       category:'Trump/Tariffs', tickers:a.tickers, sectors:a.sectors,
       sentiment:sent, impact:a.urgency>=70?'high':a.urgency>=45?'medium':'low',
-      why: whyMatters('Trump/Tariffs', (a.tickers&&a.tickers[0])||null, sent), text:(a.title||'')+' '+(a.summary||'') };
+      why: whyMatters('Trump/Tariffs', (a.tickers||[]).find(t=>COMPANY[t])||null, sent), text:(a.title||'')+' '+(a.summary||'') };
   });
 }
 function combinedNews(){ return dedupNews([...portfolioAsNews(), ...trumpAsNews(), ...State.mNews].sort((a,b)=>b.pubDate-a.pubDate)); }

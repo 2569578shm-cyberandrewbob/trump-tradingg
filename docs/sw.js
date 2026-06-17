@@ -1,7 +1,7 @@
 // Trump Trading PWA service worker.
 // Bump CACHE on every deploy so old cached files (e.g. the previous mockup)
 // are purged and the latest version always shows.
-const CACHE = 'tt-pwa-2026-06-17-6-trumpcat';
+const CACHE = 'tt-pwa-2026-06-17-7-whyfix';
 const SHELL = ['./', 'index.html', 'manifest.json', 'icon.svg'];
 
 self.addEventListener('install', (e) => {
