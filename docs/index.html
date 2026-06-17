@@ -914,7 +914,19 @@ function portfolioAsNews(){
       sectors:n.sectors, why: whyMatters('My Stocks', n.ticker, sent), text:n.text||n.title };
   });
 }
-function combinedNews(){ return dedupNews([...portfolioAsNews(), ...State.mNews].sort((a,b)=>b.pubDate-a.pubDate)); }
+// Trump alerts (already loaded reliably by loadFeeds) → unified news shape, so the
+// hub's Trump/Tariffs category stays populated even when its market RSS query is rate-limited.
+function trumpAsNews(){
+  const re=/trump|white house|president|tariff|maga|mar-a-lago|administration|trade war|export (ban|control)/i;
+  return (State.alerts||[]).filter(a=>re.test((a.title||'')+' '+(a.summary||''))).map(a=>{
+    const sent=sentimentOf((a.title||'')+' '+(a.summary||''));
+    return { title:a.title, summary:a.summary, source:pubFrom(a.title,a.source), link:a.link, pubDate:a.pubDate,
+      category:'Trump/Tariffs', tickers:a.tickers, sectors:a.sectors,
+      sentiment:sent, impact:a.urgency>=70?'high':a.urgency>=45?'medium':'low',
+      why: whyMatters('Trump/Tariffs', (a.tickers&&a.tickers[0])||null, sent), text:(a.title||'')+' '+(a.summary||'') };
+  });
+}
+function combinedNews(){ return dedupNews([...portfolioAsNews(), ...trumpAsNews(), ...State.mNews].sort((a,b)=>b.pubDate-a.pubDate)); }
 
 // ── Hub UI (#6,#7,#8) ──
 const NEWS_CATS = ['All','My Stocks','Market','Economy','Earnings','FDA/Biotech','Semiconductors','AI/Data Center','Energy/Utilities','Trump/Tariffs','Commodities','Crypto','Official Filings'];
@@ -931,7 +943,7 @@ function newsFiltered(){
   if(State.newsSearch){ const q=State.newsSearch.toLowerCase(); list=list.filter(n=>((n.title||'')+' '+(n.ticker||'')+' '+(n.company||'')+' '+(n.source||'')).toLowerCase().includes(q)); }
   return list;
 }
-function setNewsCat(c){ State.newsCat=c; if(c==='My Stocks' && !State.pLoaded) refreshPortfolio(); render(); }
+function setNewsCat(c){ State.newsCat=c; if(c==='My Stocks' && !State.pLoaded) refreshPortfolio(); if(c==='Trump/Tariffs' && !(State.alerts||[]).length && !State.loading) loadFeeds(); render(); }
 function setNewsSource(s){ State.newsSource = (State.newsSource===s?'all':s); render(); }
 function onNewsSearch(v){ State.newsSearch=v; render(); const i=document.getElementById('nSearch'); if(i){i.focus();i.setSelectionRange(v.length,v.length);} }
 
