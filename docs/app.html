@@ -179,6 +179,19 @@
   .reliability-fill { height: 100%; background: var(--low); border-radius: 5px; }
   .open-link { display: inline-block; margin-top: 8px; color: var(--accent); font-size: 13px; font-weight: 600; }
 
+  /* "Open source" link buttons (clean dark-dashboard pill). Arabic labels render RTL inside. */
+  .src-link {
+    display: inline-flex; align-items: center; gap: 5px; direction: rtl;
+    background: rgba(61,139,253,.10); color: var(--accent);
+    border: 1px solid rgba(61,139,253,.45); border-radius: 9px;
+    padding: 6px 12px; font-size: 12px; font-weight: 700; line-height: 1;
+    text-decoration: none; transition: background .15s, border-color .15s;
+  }
+  .src-link:hover { background: rgba(61,139,253,.22); border-color: var(--accent); }
+  .src-link.sm { padding: 4px 9px; font-size: 11px; border-radius: 8px; }
+  .src-link-none { display: inline-block; direction: rtl; color: var(--text2); font-size: 11px; font-style: italic; opacity: .8; }
+  .card-links { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+
   /* Source health rows */
   .src-row { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 13px 15px; margin-bottom: 9px; }
   .src-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -980,6 +993,7 @@ function newsCard(n){
     (n.summary?'<div class="card-summary">'+esc(n.summary.slice(0,170))+'</div>':'')+
     '<div class="card-footer"><span style="font-size:11px;font-weight:700;color:'+sentColor(n.sentiment)+'">'+n.sentiment+'</span>'+
     '<span class="card-time" style="font-size:10px">'+esc(n.why)+'</span></div>'+
+    '<div class="card-links">'+srcLinkOrNote(n.link, 'فتح الخبر')+'</div>'+
   '</div></div>';
 }
 
@@ -1026,7 +1040,7 @@ async function loadFeeds() {
   // arrives — content shows up immediately instead of waiting for all 30+ feeds.
   await poolMap(SOURCES, 4, (f) => fetchFeed(f, 0), (r, idx) => {
     if (job !== loadJobId) return;
-    health[idx] = { name: r.feed.name, url: r.feed.url, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error };
+    health[idx] = { name: r.feed.name, url: r.feed.url, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error, sampleUrl: (r.items[0] && r.items[0].link) || '' };
     if (r.items.length) for (const it of r.items) acc.push(it);
     const now = Date.now();
     if (now - lastRender > 300) {
@@ -1060,6 +1074,19 @@ setInterval(() => {
 
 // ============================ RENDER ============================
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ── Source-link helpers ──────────────────────────────────────────────────
+// Only ever render a link for a REAL http(s) URL coming from the feed item.
+// Never fabricate or use placeholder/demo URLs. If absent → show an honest note.
+function isHttpUrl(u){ return typeof u === 'string' && /^https?:\/\/\S+/i.test(u.trim()); }
+function srcLink(url, label, small){
+  if(!isHttpUrl(url)) return '';
+  return '<a class="src-link'+(small?' sm':'')+'" href="'+esc(url.trim())+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">'+esc(label)+' ↗</a>';
+}
+// Link button when a URL exists, otherwise the honest "no link available" note.
+function srcLinkOrNote(url, label, small){
+  return isHttpUrl(url) ? srcLink(url, label, small) : '<span class="src-link-none">لا يوجد رابط متاح</span>';
+}
 
 function render() {
   renderRefreshBar();
@@ -1167,6 +1194,7 @@ function alertCardHtml(a) {
         '<div class="tickers">'+a.tickers.map(t=>'<span class="ticker '+(State.watchlist.includes(t)?'watched':'')+'">'+t+'</span>').join('')+'</div>' +
         '<div class="card-time" title="'+cairoFull(a.pubDate)+'">🕐 '+relTime(a.pubDate)+' · Cairo</div>' +
       '</div>' +
+      '<div class="card-links">'+srcLinkOrNote(a.link, 'فتح المصدر')+'</div>' +
     '</div>' +
   '</div>';
 }
@@ -1205,7 +1233,7 @@ function retrySource(idx) {
   const s = State.feedHealth[idx]; if (!s || !s.url) return;
   s.status = 'pending'; s.error = ''; render();
   fetchFeed({ name: s.name, url: s.url, group: s.group, kind: s.kind }, 0).then(r => {
-    State.feedHealth[idx] = { name: r.feed.name, url: r.feed.url, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error };
+    State.feedHealth[idx] = { name: r.feed.name, url: r.feed.url, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error, sampleUrl: (r.items[0] && r.items[0].link) || '' };
     if (r.items.length) { State.lastUpdated = new Date(); }
     render();
   });
@@ -1226,7 +1254,9 @@ function renderSources() {
     return '<div class="src-row"><div class="src-top"><div class="src-name">'+esc(s.name)+
     (s.kind==='official'?' <span style="color:var(--low);font-size:9px;font-weight:700">OFFICIAL</span>':'')+
     '</div><div style="display:flex;align-items:center"><div class="src-status '+cls(s.status)+'">'+lbl(s.status)+'</div>'+retry+'</div></div>'+
-    '<div class="src-meta">'+esc(sourceReason(s))+'</div></div>';
+    '<div class="src-meta">'+esc(sourceReason(s))+'</div>'+
+    (isHttpUrl(s.sampleUrl) ? '<div style="margin-top:8px">'+srcLink(s.sampleUrl, 'مثال من المصدر', true)+'</div>' : '')+
+    '</div>';
   };
 
   let groupsHtml = '';
@@ -1281,7 +1311,7 @@ function openDetail(id) {
   document.getElementById('modalBody').innerHTML =
     '<div class="detail-accent" style="background:'+riskColor(a.risk)+'"></div>' +
     '<div class="card-top" style="margin-bottom:14px"><div style="font-size:18px;font-weight:700;line-height:1.35">'+esc(a.title)+'</div><div class="risk-pill risk-'+a.risk+'">'+a.risk+'</div></div>' +
-    '<div class="detail-row"><div class="detail-label">Statement / Headline</div><div class="detail-statement">'+esc(a.summary || a.title)+'</div><a class="open-link" href="'+a.link+'" target="_blank">Open original article ↗</a></div>' +
+    '<div class="detail-row"><div class="detail-label">Statement / Headline</div><div class="detail-statement">'+esc(a.summary || a.title)+'</div><div style="margin-top:10px">'+srcLinkOrNote(a.link, 'المصدر الأصلي')+'</div></div>' +
     '<div class="stat-grid" style="grid-template-columns:1fr 1fr">' +
       '<div class="stat-card"><div class="stat-val" style="font-size:20px;color:'+riskColor(a.risk)+'">'+a.urgency+'</div><div class="stat-lbl">Urgency</div></div>' +
       '<div class="stat-card"><div class="stat-val" style="font-size:15px;color:'+(a.confirmed?'var(--low)':'var(--medium)')+'">'+(a.confirmed?'Confirmed':'Unconfirmed')+'</div><div class="stat-lbl">Status</div></div>' +
