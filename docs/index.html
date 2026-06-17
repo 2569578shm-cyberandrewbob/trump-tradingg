@@ -461,7 +461,7 @@ async function poolMap(arr, n, fn, onResult) {
 // ============================ STATE ============================
 const State = {
   alerts: [], feedHealth: [], usingFallback: false,
-  route: location.hash.replace('#','') || 'portfolio',
+  route: location.hash.replace('#','') || 'news',
   riskFilter: 'all', categoryFilter: null, search: '',
   feedLimit: 25,
   watchlist: JSON.parse(localStorage.getItem('tt_watchlist') || '["OIL","SPY","DXY"]'),
@@ -473,33 +473,76 @@ function saveWatchlist() { localStorage.setItem('tt_watchlist', JSON.stringify(S
 // ============================================================================
 //  PERSONAL PORTFOLIO NEWS RADAR  (browser-side; swap fetchFeed→backend later)
 // ============================================================================
-const DEFAULT_PORTFOLIO = ['SPCX','DRAM','MU','SNDK','QCOM','AMZN','AAOI','BWXT','AMAT','IONQ','NBIS','RKLB','ORCL','ASTS','TSM','ASML','AMD'];
+// Current watchlist (editable in My Stocks). Versioned so the new default
+// migrates over an older saved one.
+const PORTFOLIO_VERSION = 2;
+const DEFAULT_PORTFOLIO = [
+  'LLY','NVO','AZN','RHHBY','AMGN','PFE','MRK',
+  'VKTX','GPCR','ZLDPF','ALT','TERN',
+  'HIMS','WW','LFMD','MCK','CAH','COR',
+  'NVDA','SNPS','MRVL','AMD','AMAT','AVGO','LRCX','CDNS',
+  'VRT','ANET','CEG','PLTR',
+  'VST','GEV','ETN','TSM',
+];
 // ticker → { name, search query phrase, sectors, regex of mentions, verify flag, note }
 const COMPANY = {
-  SPCX: { name:'SPAC and New Issue ETF', search:'"SPAC and New Issue ETF" OR SPCX ETF', sectors:['ETFs/Other'], re:/\bSPCX\b|SPAC and New Issue/i, verify:true, note:'ETF — verify ticker is still listed (Tuttle SPCX).' },
-  DRAM: { name:'DRAM (memory)', search:'DRAM memory chip prices', sectors:['ETFs/Other','Semiconductors'], re:/\bDRAM\b/i, verify:true, note:'"DRAM" is a memory-chip term, not a single clear ticker — verify the exact security.' },
-  MU:   { name:'Micron Technology', search:'"Micron Technology"', sectors:['Semiconductors','AI/Data Center'], re:/\bmicron\b|\bMU\b/i },
-  SNDK: { name:'SanDisk', search:'"SanDisk" stock OR Sandisk Corp', sectors:['Semiconductors'], re:/\bsandisk\b|\bSNDK\b/i, verify:true, note:'SanDisk Corp (NASDAQ: SNDK) — Feb-2025 Western Digital spinoff.' },
-  QCOM: { name:'Qualcomm', search:'"Qualcomm"', sectors:['Semiconductors','AI/Data Center'], re:/\bqualcomm\b|\bQCOM\b/i },
-  AMZN: { name:'Amazon', search:'"Amazon" (AWS OR stock OR cloud OR earnings)', sectors:['AI/Data Center','Big Tech/Cloud'], re:/\bamazon\b|\bAMZN\b|\bAWS\b/i },
-  AAOI: { name:'Applied Optoelectronics', search:'"Applied Optoelectronics"', sectors:['Optical Networking'], re:/applied optoelectronics|\bAAOI\b/i },
-  BWXT: { name:'BWX Technologies', search:'"BWX Technologies"', sectors:['Defense/Nuclear'], re:/BWX Technologies|\bBWXT\b/i },
-  AMAT: { name:'Applied Materials', search:'"Applied Materials"', sectors:['Semiconductors','AI/Data Center'], re:/applied materials|\bAMAT\b/i },
-  IONQ: { name:'IonQ', search:'"IonQ" quantum', sectors:['Quantum'], re:/\bionq\b/i },
-  NBIS: { name:'Nebius Group', search:'"Nebius"', sectors:['AI/Data Center'], re:/\bnebius\b|\bNBIS\b/i },
-  RKLB: { name:'Rocket Lab', search:'"Rocket Lab"', sectors:['Space'], re:/rocket lab|\bRKLB\b/i },
-  ORCL: { name:'Oracle', search:'"Oracle" (cloud OR stock OR earnings OR OCI)', sectors:['Big Tech/Cloud','AI/Data Center'], re:/\boracle\b|\bORCL\b/i },
-  ASTS: { name:'AST SpaceMobile', search:'"AST SpaceMobile"', sectors:['Space'], re:/ast spacemobile|\bASTS\b/i },
-  TSM:  { name:'Taiwan Semiconductor (TSMC)', search:'"Taiwan Semiconductor" OR TSMC', sectors:['Semiconductors','AI/Data Center'], re:/taiwan semiconductor|\bTSMC\b|\bTSM\b/i },
-  ASML: { name:'ASML Holding', search:'"ASML"', sectors:['Semiconductors','AI/Data Center'], re:/\bASML\b/i },
-  AMD:  { name:'Advanced Micro Devices', search:'"Advanced Micro Devices" OR "AMD chip"', sectors:['Semiconductors','AI/Data Center'], re:/advanced micro devices|\bAMD\b/i },
+  // ── Pharma / Biotech (incl. GLP-1 / obesity) ──
+  LLY:   { name:'Eli Lilly', search:'"Eli Lilly" (Zepbound OR Mounjaro OR orforglipron OR FDA OR earnings)', sectors:['FDA/Biotech'], re:/eli lilly|\bLLY\b|zepbound|mounjaro/i },
+  NVO:   { name:'Novo Nordisk', search:'"Novo Nordisk" (Wegovy OR Ozempic OR FDA OR earnings)', sectors:['FDA/Biotech'], re:/novo nordisk|\bNVO\b|wegovy|ozempic/i },
+  AZN:   { name:'AstraZeneca', search:'"AstraZeneca"', sectors:['FDA/Biotech'], re:/astrazeneca|\bAZN\b/i },
+  RHHBY: { name:'Roche Holding', search:'"Roche" (pharma OR drug OR FDA OR earnings)', sectors:['FDA/Biotech'], re:/\broche\b|\bRHHBY\b/i, verify:true, note:'OTC ADR (RHHBY) — thin US listing; verify the security.' },
+  AMGN:  { name:'Amgen', search:'"Amgen"', sectors:['FDA/Biotech'], re:/\bamgen\b|\bAMGN\b/i },
+  PFE:   { name:'Pfizer', search:'"Pfizer"', sectors:['FDA/Biotech'], re:/\bpfizer\b|\bPFE\b/i },
+  MRK:   { name:'Merck', search:'"Merck" (Keytruda OR FDA OR earnings)', sectors:['FDA/Biotech'], re:/\bmerck\b|\bMRK\b|keytruda/i },
+  VKTX:  { name:'Viking Therapeutics', search:'"Viking Therapeutics"', sectors:['FDA/Biotech'], re:/viking therapeutics|\bVKTX\b/i },
+  GPCR:  { name:'Structure Therapeutics', search:'"Structure Therapeutics"', sectors:['FDA/Biotech'], re:/structure therapeutics|\bGPCR\b/i },
+  ZLDPF: { name:'Zealand Pharma', search:'"Zealand Pharma"', sectors:['FDA/Biotech'], re:/zealand pharma|\bZLDPF\b/i, verify:true, note:'OTC ADR (ZLDPF); primary listing is Copenhagen — verify the security.' },
+  ALT:   { name:'Altimmune', search:'"Altimmune" (pemvidutide OR obesity)', sectors:['FDA/Biotech'], re:/altimmune|\bALT\b|pemvidutide/i },
+  TERN:  { name:'Terns Pharmaceuticals', search:'"Terns Pharmaceuticals"', sectors:['FDA/Biotech'], re:/terns pharma|\bTERN\b/i },
+  HIMS:  { name:'Hims & Hers Health', search:'"Hims & Hers"', sectors:['FDA/Biotech'], re:/hims ?& ?hers|\bHIMS\b/i },
+  WW:    { name:'WW International (WeightWatchers)', search:'"WeightWatchers" OR "WW International"', sectors:['FDA/Biotech'], re:/weightwatchers|ww international/i, verify:true, note:'Restructured in 2025 — verify the current listing.' },
+  LFMD:  { name:'LifeMD', search:'"LifeMD"', sectors:['FDA/Biotech'], re:/\blifemd\b|\bLFMD\b/i },
+  // ── Healthcare distribution ──
+  MCK:   { name:'McKesson', search:'"McKesson"', sectors:['Healthcare Distribution'], re:/mckesson|\bMCK\b/i },
+  CAH:   { name:'Cardinal Health', search:'"Cardinal Health"', sectors:['Healthcare Distribution'], re:/cardinal health|\bCAH\b/i },
+  COR:   { name:'Cencora', search:'"Cencora"', sectors:['Healthcare Distribution'], re:/\bcencora\b|\bCOR\b/i },
+  // ── Semiconductors ──
+  NVDA:  { name:'Nvidia', search:'"Nvidia" (AI OR GPU OR data center OR earnings)', sectors:['Semiconductors','AI/Data Center'], re:/\bnvidia\b|\bNVDA\b/i },
+  SNPS:  { name:'Synopsys', search:'"Synopsys"', sectors:['Semiconductors'], re:/synopsys|\bSNPS\b/i },
+  MRVL:  { name:'Marvell Technology', search:'"Marvell Technology"', sectors:['Semiconductors','AI/Data Center'], re:/\bmarvell\b|\bMRVL\b/i },
+  AMD:   { name:'Advanced Micro Devices', search:'"Advanced Micro Devices" OR "AMD chip"', sectors:['Semiconductors','AI/Data Center'], re:/advanced micro devices|\bAMD\b/i },
+  AMAT:  { name:'Applied Materials', search:'"Applied Materials"', sectors:['Semiconductors'], re:/applied materials|\bAMAT\b/i },
+  AVGO:  { name:'Broadcom', search:'"Broadcom"', sectors:['Semiconductors','AI/Data Center'], re:/broadcom|\bAVGO\b/i },
+  LRCX:  { name:'Lam Research', search:'"Lam Research"', sectors:['Semiconductors'], re:/lam research|\bLRCX\b/i },
+  CDNS:  { name:'Cadence Design Systems', search:'"Cadence Design"', sectors:['Semiconductors'], re:/cadence design|\bCDNS\b/i },
+  // ── AI / data center / software ──
+  VRT:   { name:'Vertiv Holdings', search:'"Vertiv"', sectors:['AI/Data Center'], re:/\bvertiv\b|\bVRT\b/i },
+  ANET:  { name:'Arista Networks', search:'"Arista Networks"', sectors:['AI/Data Center'], re:/arista networks|\bANET\b/i },
+  PLTR:  { name:'Palantir Technologies', search:'"Palantir"', sectors:['AI/Data Center'], re:/palantir|\bPLTR\b/i },
+  // ── Energy / utilities ──
+  CEG:   { name:'Constellation Energy', search:'"Constellation Energy"', sectors:['Energy/Utilities'], re:/constellation energy|\bCEG\b/i },
+  VST:   { name:'Vistra', search:'"Vistra" (energy OR power OR nuclear)', sectors:['Energy/Utilities'], re:/\bvistra\b|\bVST\b/i },
+  GEV:   { name:'GE Vernova', search:'"GE Vernova"', sectors:['Energy/Utilities'], re:/ge vernova|\bGEV\b/i },
+  ETN:   { name:'Eaton', search:'"Eaton" (electrical OR power OR data center)', sectors:['Energy/Utilities'], re:/\beaton\b|\bETN\b/i },
+  TSM:   { name:'Taiwan Semiconductor (TSMC)', search:'"Taiwan Semiconductor" OR TSMC', sectors:['Semiconductors','AI/Data Center'], re:/taiwan semiconductor|\bTSMC\b|\bTSM\b/i },
 };
-const PSECTOR_LIST = ['Semiconductors','AI/Data Center','Big Tech/Cloud','Quantum','Space','Defense/Nuclear','Optical Networking','ETFs/Other'];
+const PSECTOR_LIST = ['FDA/Biotech','Healthcare Distribution','Semiconductors','AI/Data Center','Energy/Utilities'];
+// cross-impact: news on one holding may also affect these related holdings
 const CROSS = {
-  TSM:['AMD','QCOM','AMAT','ASML','MU','NBIS'], ASML:['TSM','AMD','QCOM','AMAT'], AMD:['TSM','ASML','AMAT','MU','QCOM'],
-  AMAT:['TSM','ASML','AMD','MU'], QCOM:['TSM','ASML','AMAT'], MU:['SNDK','DRAM','AMAT','TSM'], SNDK:['MU','DRAM'], DRAM:['MU','SNDK'],
-  AMZN:['AMD','TSM','ASML','AMAT','MU','NBIS','ORCL'], ORCL:['AMD','AMZN','NBIS','TSM'], NBIS:['AMD','TSM','AMZN','ORCL'],
-  RKLB:['ASTS'], ASTS:['RKLB'], BWXT:[], IONQ:[], AAOI:['TSM','AMD'], SPCX:[],
+  // GLP-1 / obesity complex
+  LLY:['NVO','VKTX','GPCR','ALT','TERN','HIMS'], NVO:['LLY','VKTX','GPCR','ALT','TERN','HIMS'],
+  VKTX:['LLY','NVO','GPCR','ALT','TERN'], GPCR:['LLY','NVO','VKTX','ALT','TERN'], ALT:['LLY','NVO','VKTX','GPCR','TERN'], TERN:['LLY','NVO','VKTX','GPCR'],
+  HIMS:['LLY','NVO','LFMD','WW'], WW:['HIMS','NVO','LLY'], LFMD:['HIMS'],
+  ZLDPF:['NVO','LLY'], AZN:['MRK','PFE','AMGN'], RHHBY:['AZN','MRK','PFE'], AMGN:['LLY','NVO','MRK'], PFE:['MRK','AMGN','AZN'], MRK:['PFE','AMGN','AZN'],
+  // healthcare distribution
+  MCK:['CAH','COR'], CAH:['MCK','COR'], COR:['MCK','CAH'],
+  // semis
+  NVDA:['AMD','AVGO','MRVL','TSM','AMAT','LRCX','SNPS','CDNS','VRT','ANET'], AMD:['NVDA','AVGO','MRVL','TSM','AMAT','LRCX'],
+  AVGO:['NVDA','AMD','MRVL','TSM'], MRVL:['NVDA','AVGO','AMD','TSM'], TSM:['NVDA','AMD','AVGO','AMAT','LRCX','MRVL'],
+  AMAT:['LRCX','TSM','NVDA','AMD'], LRCX:['AMAT','TSM','NVDA'], SNPS:['CDNS','NVDA'], CDNS:['SNPS','NVDA'],
+  // AI infra / data center power
+  VRT:['ANET','ETN','NVDA','CEG','VST','GEV'], ANET:['NVDA','VRT','AVGO'], PLTR:['NVDA'],
+  CEG:['VST','GEV','ETN','VRT'], VST:['CEG','GEV','ETN'], GEV:['CEG','VST','ETN'], ETN:['VRT','GEV','CEG'],
 };
 // Categories (priority order)
 const P_CATS = [
@@ -546,7 +589,18 @@ function pLabel(item){
 function pImpactColor(d){ return {positive:'var(--low)',negative:'var(--critical)',mixed:'var(--high)'}[d]||'var(--text2)'; }
 
 // ── State ──
-State.portfolio = (JSON.parse(localStorage.getItem('tt_portfolio')||'null')) || DEFAULT_PORTFOLIO.slice();
+// Migrate to the current default watchlist when the stored version is older.
+(function(){
+  const savedV = parseInt(localStorage.getItem('tt_portfolio_v')||'1');
+  const saved = JSON.parse(localStorage.getItem('tt_portfolio')||'null');
+  if (!saved || savedV < PORTFOLIO_VERSION) {
+    State.portfolio = DEFAULT_PORTFOLIO.slice();
+    localStorage.setItem('tt_portfolio', JSON.stringify(State.portfolio));
+    localStorage.setItem('tt_portfolio_v', String(PORTFOLIO_VERSION));
+  } else {
+    State.portfolio = saved;
+  }
+})();
 State.pNews = []; State.pHealth = []; State.pLoaded = false; State.pLoading = false; State.pLastUpdated = null;
 State.pFilter = 'all'; State.pSearch = '';
 function savePortfolio(){ localStorage.setItem('tt_portfolio', JSON.stringify(State.portfolio)); }
@@ -715,10 +769,202 @@ function renderStockDetail(t){
       '<div class="stat-card"><div class="stat-val" style="color:var(--critical)">'+neg+'</div><div class="stat-lbl">Negative</div></div>'+
       '<div class="stat-card"><div class="stat-val" style="font-size:14px;color:var(--accent)">'+(news[0]?esc(news[0].category):'—')+'</div><div class="stat-lbl">Latest theme</div></div></div>'+
     (related.length?'<div class="section-head">Related holdings (cross-impact)</div><div class="chip-row">'+related.map(x=>'<span class="chip" onclick="go(\'stock/'+x+'\')">'+x+'</span>').join('')+'</div>':'')+
+    '<div class="section-head">Open '+t+' on other sources</div><div class="chip-row">'+EXTERNAL_SOURCES.map(s=>'<a class="chip" href="'+s.url(t)+'" target="_blank" rel="noopener">'+esc(s.name)+' ↗</a>').join('')+'</div>'+
     '<div class="section-head">Latest news</div>'+
     (news.length?news.map(pCard).join(''):'<div class="status-msg">'+(State.pLoading?'Scanning…':'No fresh news for '+t+' in the last 7 days.')+'</div>')+
     '<div class="status-msg" style="text-align:left;font-size:11px;padding:14px 0">⚠️ Informational only. Not financial advice. Verify original sources before trading.</div>'+
   '</div>';
+}
+
+// ============================================================================
+//  MARKET NEWS SOURCES SYSTEM  (watchlist-aware; browser RSS, swap to backend later)
+// ============================================================================
+// Smart keywords per sector (#5) — appended to ticker queries for relevance.
+const SECTOR_KEYWORDS = {
+  'FDA/Biotech': 'FDA OR "clinical trial" OR approval OR "phase 3" OR obesity OR earnings',
+  'Healthcare Distribution': 'earnings OR guidance OR distribution OR pharmacy',
+  'Semiconductors': '"AI chips" OR semiconductor OR "data center" OR "export controls" OR earnings',
+  'AI/Data Center': '"data center" OR AI OR capex OR cloud OR earnings',
+  'Energy/Utilities': '"nuclear power" OR "energy demand" OR "data center power" OR grid OR earnings',
+};
+// Source catalog (#3) — type: rss(Google News) | official(gov RSS) | external_search(link only)
+const NEWS_SOURCES = [
+  { name:'Google News', category:'General', type:'rss', enabled:true, priority:9 },
+  { name:'Yahoo Finance', category:'Stock-specific', type:'rss', enabled:true, priority:8 },
+  { name:'CNBC', category:'General market', type:'rss', enabled:true, priority:8 },
+  { name:'Reuters', category:'General market', type:'rss', enabled:true, priority:9 },
+  { name:'MarketWatch', category:'General market', type:'rss', enabled:true, priority:7 },
+  { name:'Bloomberg', category:'General market', type:'external_search', enabled:true, priority:7 },
+  { name:'Investing.com', category:'General market', type:'external_search', enabled:true, priority:6 },
+  { name:'Seeking Alpha', category:'Stock-specific', type:'external_search', enabled:true, priority:6 },
+  { name:'TradingView', category:'Stock-specific', type:'external_search', enabled:true, priority:5 },
+  { name:'TipRanks', category:'Analyst', type:'external_search', enabled:true, priority:5 },
+  { name:'Finviz', category:'Stock-specific', type:'external_search', enabled:true, priority:5 },
+  { name:'Benzinga', category:'Stock-specific', type:'rss', enabled:true, priority:5 },
+  { name:'Nasdaq', category:'Stock-specific', type:'rss', enabled:true, priority:5 },
+  { name:'SEC EDGAR', category:'Official Filings', type:'external_search', enabled:true, priority:8 },
+  { name:'Federal Reserve', category:'Fed / rates', type:'official', enabled:true, priority:9, url:'https://www.federalreserve.gov/feeds/press_all.xml' },
+  { name:'BLS', category:'Economy', type:'official', enabled:true, priority:8, url:'https://www.bls.gov/feed/news_release/bls.rss' },
+  { name:'Treasury.gov', category:'Economy', type:'official', enabled:true, priority:7, url:'https://home.treasury.gov/rss/press.xml' },
+  { name:'FRED / St. Louis Fed', category:'Economy', type:'external_search', enabled:true, priority:6 },
+  { name:'Forex Factory', category:'Economic calendar', type:'external_search', enabled:true, priority:6 },
+  { name:'Earnings Whispers', category:'Earnings', type:'external_search', enabled:true, priority:5 },
+];
+// Category market/macro feeds (not ticker-specific)
+const NEWS_CATEGORY_FEEDS = [
+  { cat:'Market', q:'stock market S&P 500 Nasdaq Dow when:2d' },
+  { cat:'Economy', q:'US economy CPI inflation jobs report GDP when:3d' },
+  { cat:'Economy', q:'Federal Reserve interest rates Powell rate decision when:3d' },
+  { cat:'Earnings', q:'earnings beat miss guidance results when:2d' },
+  { cat:'Commodities', q:'gold price OR oil price OR natural gas WTI Brent when:2d' },
+  { cat:'Crypto', q:'bitcoin OR crypto OR ethereum price when:2d' },
+  { cat:'Trump/Tariffs', q:'Trump tariffs trade war China export when:2d' },
+  { cat:'FDA/Biotech', q:'FDA approval OR drug OR biotech OR "clinical trial" when:3d' },
+  { cat:'Semiconductors', q:'semiconductor OR chip OR "AI chips" OR "export controls" when:2d' },
+  { cat:'AI/Data Center', q:'AI OR "data center" OR Nvidia OR capex when:2d' },
+  { cat:'Energy/Utilities', q:'"nuclear power" OR "energy demand" OR utilities OR "power grid" when:3d' },
+];
+const OFFICIAL_FEEDS = [
+  { cat:'Official Filings', source:'Federal Reserve', url:'https://www.federalreserve.gov/feeds/press_all.xml' },
+  { cat:'Official Filings', source:'BLS', url:'https://www.bls.gov/feed/news_release/bls.rss' },
+  { cat:'Official Filings', source:'Treasury', url:'https://home.treasury.gov/rss/press.xml' },
+];
+// External (non-fetchable) source links (#12) — per ticker
+const EXTERNAL_SOURCES = [
+  { name:'Yahoo Finance', url:t=>'https://finance.yahoo.com/quote/'+t+'/news' },
+  { name:'TradingView', url:t=>'https://www.tradingview.com/symbols/'+t+'/news/' },
+  { name:'Seeking Alpha', url:t=>'https://seekingalpha.com/symbol/'+t+'/news' },
+  { name:'TipRanks', url:t=>'https://www.tipranks.com/stocks/'+t.toLowerCase()+'/stock-news' },
+  { name:'Finviz', url:t=>'https://finviz.com/quote.ashx?t='+t },
+  { name:'Investing.com', url:t=>'https://www.investing.com/search/?q='+encodeURIComponent(t) },
+  { name:'SEC filings', url:t=>'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company='+encodeURIComponent(COMPANY[t]?COMPANY[t].name:t)+'&type=&dateb=&owner=include&count=40' },
+  { name:'Google News', url:t=>'https://news.google.com/search?q='+encodeURIComponent(t+' '+(COMPANY[t]?COMPANY[t].name:'')) },
+  { name:'Earnings Whispers', url:t=>'https://www.earningswhispers.com/stocks/'+t },
+];
+const GENERAL_EXTERNAL = [
+  { name:'Forex Factory (calendar)', url:'https://www.forexfactory.com/calendar' },
+  { name:'FRED', url:'https://fred.stlouisfed.org/' },
+  { name:'Federal Reserve', url:'https://www.federalreserve.gov/newsevents.htm' },
+  { name:'BLS', url:'https://www.bls.gov/' },
+  { name:'BEA', url:'https://www.bea.gov/news/current-releases' },
+  { name:'SEC EDGAR', url:'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany' },
+];
+
+// ── Sentiment / impact tagging (#9, #11) ──
+const BULLISH = /(beat(s|ing)?|tops? estimates|upgrade[sd]?|raises? (guidance|outlook|target|price target)|approval|approved|strong (demand|results|guidance|quarter)|partnership|record (revenue|quarter|backlog|sales)|outperform|overweight|buy rating|wins? (a )?(contract|deal|order)|surge[sd]?|breakthrough|positive (data|results)|expands?|all-time high)/gi;
+const BEARISH = /(miss(es|ed)?|downgrade[sd]?|investigation|probe|delay(s|ed)?|FDA (hold|rejection|crl)|complete response letter|weak (guidance|demand|results)|cuts? (guidance|outlook|forecast)|\btariff|export (ban|control|restriction)|lawsuit|sued|recall|halt(s|ed)?|warns?|warning|dilution|stock offering|fraud|underperform|underweight|loses? (a )?(contract|customer)|short report)/gi;
+function sentimentOf(t){ const b=(t.match(BULLISH)||[]).length, r=(t.match(BEARISH)||[]).length; return b>r?'bullish': r>b?'bearish':'neutral'; }
+const BREAKING = /(earnings|guidance|FDA (approval|hold|rejection)|merger|acquisition|upgrade|downgrade|trump tariff|china (ban|export)|fed (decision|cut|hike|meeting)|\bCPI\b|\bPPI\b|jobs report|inflation|interest rate|recall|investigation|clinical (trial|readout)|phase 3)/i;
+function impactOf(t, sent){ if(BREAKING.test(t)) return 'high'; if(sent!=='neutral') return 'medium'; return 'low'; }
+function sentColor(s){ return s==='bullish'?'var(--low)':s==='bearish'?'var(--critical)':'var(--text2)'; }
+function impactColorL(l){ return l==='high'?'var(--critical)':l==='medium'?'var(--high)':'var(--text2)'; }
+function pubFrom(title, fallback){ const m=String(title).match(/\s[-–—]\s([A-Za-z0-9 .,'&]{2,42})$/); return m?m[1].trim():(fallback||'News'); }
+function stripPub(title){ const m=String(title).match(/\s[-–—]\s([A-Za-z0-9 .,'&]{2,42})$/); return m?title.slice(0,m.index).trim():title; }
+function whyMatters(cat, ticker, sent){
+  const dir = sent==='bullish'?'possible positive':sent==='bearish'?'possible negative':'mixed / uncertain';
+  if(ticker){ const c=COMPANY[ticker]; return 'Direct news on '+(c?c.name:ticker)+' ('+((c&&c.sectors)||['']).join(', ')+') — '+dir+' read.'; }
+  const map={ Market:'Broad-market backdrop affecting all holdings.', Economy:'Macro data (rates, inflation, jobs) drives valuations across the watchlist.', Earnings:'Earnings season can move comparable names in your sectors.', Commodities:'Commodity moves affect energy holdings and input costs.', Crypto:'Crypto sentiment can spill into risk assets.', 'Trump/Tariffs':'Tariff / trade policy hits semis, pharma supply chains and China-exposed names.', 'FDA/Biotech':'Regulatory / clinical news moves your biotech holdings.', Semiconductors:'Chip-sector news affects NVDA, AMD, AVGO, TSM, AMAT, LRCX.', 'AI/Data Center':'AI / data-center demand drives chips, networking and power holdings.', 'Energy/Utilities':'Power-demand & nuclear news affects CEG, VST, GEV, ETN.', 'Official Filings':'Official government / regulator release.' };
+  return map[cat]||'Market-related news that may affect your watchlist.';
+}
+function normalizeNews(raw, category, ticker, sourceName){
+  const title = stripPub(raw.title);
+  const source = (sourceName && !/google news/i.test(sourceName)) ? sourceName : pubFrom(raw.title, sourceName);
+  const text = title+' '+(raw.summary||'');
+  const sent = sentimentOf(text);
+  return { title, summary:raw.summary, source, link:raw.link, pubDate:raw.pubDate,
+    category, ticker:ticker||null, company: ticker?(COMPANY[ticker]?.name||ticker):'',
+    sentiment:sent, impact:impactOf(text,sent), sectors: ticker?(COMPANY[ticker]?.sectors||[]):[],
+    why: whyMatters(category, ticker, sent), text };
+}
+function dedupNews(items){ const seen=new Set(); const out=[]; for(const n of items){ const k=(n.title||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().slice(0,55); if(!k||seen.has(k)) continue; seen.add(k); out.push(n); } return out; }
+
+// ── State ──
+State.mNews=[]; State.mHealth=[]; State.mLoaded=false; State.mLoading=false; State.mLastUpdated=null;
+State.newsCat='All'; State.newsSource='all'; State.newsSearch='';
+
+// ── Fetcher (#10,#13,#14) — never throws; partial results on source failure ──
+async function loadMarketNews(){
+  if(State.mLoading) return; State.mLoading=true; State.mLoaded=true;
+  const feeds=[];
+  NEWS_CATEGORY_FEEDS.forEach(f=>feeds.push({ category:f.cat, source:'Google News', url:gn(f.q) }));
+  OFFICIAL_FEEDS.forEach(f=>feeds.push({ category:f.cat, source:f.source, url:f.url }));
+  State.mHealth = feeds.map(f=>({ name:f.source+' · '+f.category, status:'pending', count:0 }));
+  if(State.route==='news') render();
+  const acc=[];
+  await poolMap(feeds, 3, f=>fetchFeed(f,0), (r,idx)=>{
+    State.mHealth[idx]={ name:feeds[idx].source+' · '+feeds[idx].category, status:r.status, count:r.items.length, error:r.error };
+    for(const it of (r.items||[])) acc.push(normalizeNews(it, feeds[idx].category, null, feeds[idx].source));
+  });
+  State.mNews = dedupNews(acc.sort((a,b)=>b.pubDate-a.pubDate)).slice(0,250);
+  State.mLastUpdated=new Date(); State.mLoading=false;
+  if(State.route==='news') render();
+}
+function refreshMarketNews(){ State.mLoading=false; loadMarketNews(); State.pLoaded=false; refreshPortfolio(); }
+
+// portfolio (ticker) news → unified news shape
+function portfolioAsNews(){
+  return (State.pNews||[]).map(n=>{
+    const sent = n.impact==='positive'?'bullish':n.impact==='negative'?'bearish':sentimentOf(n.text||n.title);
+    return { title:n.title, summary:n.summary, source:pubFrom(n.title,n.source), link:n.link, pubDate:n.pubDate,
+      category:'My Stocks', ticker:n.ticker, company:n.company, tickers:n.tickers,
+      sentiment:sent, impact:n.urgency>=70?'high':n.urgency>=45?'medium':'low',
+      sectors:n.sectors, why: whyMatters('My Stocks', n.ticker, sent), text:n.text||n.title };
+  });
+}
+function combinedNews(){ return dedupNews([...portfolioAsNews(), ...State.mNews].sort((a,b)=>b.pubDate-a.pubDate)); }
+
+// ── Hub UI (#6,#7,#8) ──
+const NEWS_CATS = ['All','My Stocks','Market','Economy','Earnings','FDA/Biotech','Semiconductors','AI/Data Center','Energy/Utilities','Trump/Tariffs','Commodities','Crypto','Official Filings'];
+const NEWS_SOURCE_FILTERS = ['Yahoo Finance','CNBC','Reuters','Bloomberg','Investing.com','TradingView','MarketWatch','Seeking Alpha','SEC','Fed','BLS'];
+const SOURCE_MATCH = { 'Yahoo Finance':/yahoo/i,'CNBC':/cnbc/i,'Reuters':/reuters/i,'Bloomberg':/bloomberg/i,'Investing.com':/investing/i,'TradingView':/tradingview/i,'MarketWatch':/market\s?watch/i,'Seeking Alpha':/seeking ?alpha/i,'SEC':/\bSEC\b|edgar/i,'Fed':/fed|federal reserve/i,'BLS':/\bBLS\b|bureau of labor/i };
+const SECTOR_CATS = ['FDA/Biotech','Semiconductors','AI/Data Center','Energy/Utilities'];
+function newsFiltered(){
+  let list = combinedNews();
+  const c = State.newsCat;
+  if(c==='My Stocks') list=list.filter(n=>n.category==='My Stocks');
+  else if(SECTOR_CATS.includes(c)) list=list.filter(n=>n.category===c || (n.sectors||[]).includes(c));
+  else if(c!=='All') list=list.filter(n=>n.category===c);
+  if(State.newsSource!=='all'){ const re=SOURCE_MATCH[State.newsSource]; if(re) list=list.filter(n=>re.test(n.source||'')); }
+  if(State.newsSearch){ const q=State.newsSearch.toLowerCase(); list=list.filter(n=>((n.title||'')+' '+(n.ticker||'')+' '+(n.company||'')+' '+(n.source||'')).toLowerCase().includes(q)); }
+  return list;
+}
+function setNewsCat(c){ State.newsCat=c; if(c==='My Stocks' && !State.pLoaded) refreshPortfolio(); render(); }
+function setNewsSource(s){ State.newsSource = (State.newsSource===s?'all':s); render(); }
+function onNewsSearch(v){ State.newsSearch=v; render(); const i=document.getElementById('nSearch'); if(i){i.focus();i.setSelectionRange(v.length,v.length);} }
+
+function renderNews(){
+  if(!State.mLoaded && !State.mLoading) loadMarketNews();
+  if(!State.pLoaded && !State.pLoading) loadPortfolioNews();
+  const conn=State.mHealth.filter(h=>h.status==='connected').length, fail=State.mHealth.filter(h=>h.status==='failed').length;
+  const all=combinedNews(); const list=newsFiltered();
+  const loading = State.mLoading || State.pLoading;
+  return '<div class="page">'+
+    '<div class="page-title">Market News</div>'+
+    '<div class="page-subtitle">'+all.length+' items · '+conn+' feeds up · '+fail+' failed'+(loading?' · <span class="mini-spin"></span> loading market news…':'')+(State.mLastUpdated?' · updated '+cairoClock(State.mLastUpdated)+' Cairo':'')+' <span style="color:var(--accent);cursor:pointer" onclick="refreshMarketNews()">↻ Refresh</span></div>'+
+    // category filters
+    '<div class="filters">'+NEWS_CATS.map(c=>'<button class="filter-btn '+(State.newsCat===c?'active':'')+'" data-risk="'+(c==='My Stocks'?'High':'all')+'" onclick="setNewsCat(\''+c.replace(/'/g,"\\'")+'\')">'+esc(c)+'</button>').join('')+'</div>'+
+    // source filters
+    '<div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:4px 0 6px">Filter by source</div>'+
+    '<div class="filters">'+NEWS_SOURCE_FILTERS.map(s=>'<button class="filter-btn '+(State.newsSource===s?'active':'')+'" data-risk="all" onclick="setNewsSource(\''+s.replace(/'/g,"\\'")+'\')">'+esc(s)+'</button>').join('')+'</div>'+
+    '<input class="search-box" id="nSearch" placeholder="Search headline, ticker or source…" value="'+esc(State.newsSearch)+'" oninput="onNewsSearch(this.value)">'+
+    // news list
+    (list.length? list.slice(0,90).map(newsCard).join('')
+      : '<div class="status-msg">'+(loading?'Loading market news…':(State.newsSource!=='all'?'No fetched items from '+esc(State.newsSource)+' right now — open it directly below.':'No news found for this filter.'))+'</div>')+
+    // external sources (non-fetchable)
+    '<div class="section-head">Open source directly</div>'+
+    '<div class="chip-row">'+GENERAL_EXTERNAL.map(s=>'<a class="chip" href="'+s.url+'" target="_blank" rel="noopener">'+esc(s.name)+' ↗</a>').join('')+'</div>'+
+    '<div class="status-msg" style="text-align:left;font-size:11px;padding:14px 0">⚠️ Informational only. Not financial advice. Market reactions are uncertain. Verify original sources before trading.</div>'+
+  '</div>';
+}
+function newsCard(n){
+  const tk = n.ticker ? '<span class="ticker watched" onclick="event.stopPropagation();go(\'stock/'+n.ticker+'\')">'+n.ticker+'</span> ' : '';
+  return '<div class="card"'+(n.link?' onclick="window.open(\''+(n.link||'#').replace(/"/g,'')+'\',\'_blank\')"':'')+'><div class="card-accent" style="background:'+sentColor(n.sentiment)+'"></div><div class="card-body">'+
+    '<div class="card-top"><div class="card-title">'+esc(n.title)+'</div><span class="pill" style="background:'+impactColorL(n.impact)+'22;color:'+impactColorL(n.impact)+'">'+n.impact+'</span></div>'+
+    '<div class="card-source"><span class="source-dot"></span>'+tk+esc(n.source)+' · '+esc(n.category)+' · 🕐 '+relTime(n.pubDate)+'</div>'+
+    (n.summary?'<div class="card-summary">'+esc(n.summary.slice(0,170))+'</div>':'')+
+    '<div class="card-footer"><span style="font-size:11px;font-weight:700;color:'+sentColor(n.sentiment)+'">'+n.sentiment+'</span>'+
+    '<span class="card-time" style="font-size:10px">'+esc(n.why)+'</span></div>'+
+  '</div></div>';
 }
 
 // ============================ LOAD ============================
@@ -806,6 +1052,7 @@ function render() {
   // Portfolio pages have their own loading state — render them even while the
   // Trump/market feeds are still loading.
   if (State.route.indexOf('stock/') === 0) { app.innerHTML = renderStockDetail(State.route.slice(6).toUpperCase()); return; }
+  if (State.route === 'news') { app.innerHTML = renderNews(); return; }
   if (State.route === 'portfolio') { app.innerHTML = renderPortfolio(); return; }
   if (State.route === 'stocks') { app.innerHTML = renderStocks(); return; }
   if (State.loading && !State.alerts.length) { app.innerHTML = skeletonPage(); return; }
@@ -1082,10 +1329,10 @@ function renderMarkets() {
 
 function renderNav() {
   const items = [
-    { r:'portfolio', i:'📰', l:'Portfolio' },
+    { r:'news', i:'📰', l:'News' },
     { r:'stocks', i:'💼', l:'Stocks' },
     { r:'dashboard', i:'📊', l:'Dashboard' },
-    { r:'alerts', i:'🔔', l:'Alerts' },
+    { r:'alerts', i:'🔔', l:'Trump' },
     { r:'markets', i:'📈', l:'Markets' },
     { r:'sources', i:'📡', l:'Sources' },
     { r:'settings', i:'⚙️', l:'Settings' },
@@ -1108,8 +1355,9 @@ window.addEventListener('hashchange', () => { State.route = location.hash.replac
 
 // ============================ BOOT ============================
 render();
-loadPortfolioNews();   // personal portfolio radar (primary)
-loadFeeds();           // Trump/market alerts (secondary)
+loadMarketNews();      // market/economy/sector news hub (primary)
+loadPortfolioNews();   // per-watchlist-ticker news
+loadFeeds();           // Trump/market alerts (kept as one category)
 scheduleRefresh();
 </script>
 <script>
