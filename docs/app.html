@@ -453,7 +453,7 @@ function parseXmlItems(text) {
   });
 }
 async function fetchVia(proxy, url) {
-  const r = await fetch(proxy.build(url), { signal: AbortSignal.timeout(7000) });
+  const r = await fetch(proxy.build(url), { signal: AbortSignal.timeout(6000) });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   if (proxy.kind === 'json') {
     const d = await r.json();
@@ -493,22 +493,18 @@ const FEED_CACHE_TTL = 6 * 3600e3;        // fall back to cached items up to 6h
 async function fetchFeed(feed, attempt) {
   const fresh = FEED_CACHE.get(feed.url);
   if (fresh && Date.now()-fresh.ts < FEED_FRESH_MS) return { feed, items: fresh.items, status:'connected', cached:true };
-  // Relentless: cycle every proxy, multiple passes with backoff+jitter, until a
-  // hard per-feed deadline. Most feeds succeed on the first proxy in ~1-2s; only
-  // genuinely rate-limited ones use the full budget.
-  const deadline = Date.now() + 22000;
-  let lastErr = '', pass = 0;
-  while (Date.now() < deadline) {
-    if (pass > 0) await sleep(400 + pass*250 + Math.random()*500);
-    for (const p of proxyOrder()) {
-      if (Date.now() > deadline) break;
-      try {
-        const items = await fetchVia(p, feed.url);
-        if (items.length) { FEED_CACHE.set(feed.url, { items, ts: Date.now() }); return { feed, items, status:'connected' }; }
-        lastErr = 'empty';
-      } catch(e) { lastErr = (e && e.message) || 'error'; }
-    }
-    pass++;
+  // One fast cycle through the proxies (capped ~11s) so a failing feed never hogs
+  // a worker slot — the background sweep provides the relentless persistence and
+  // re-attempts until it connects. Most feeds succeed on the first proxy in ~1-2s.
+  const deadline = Date.now() + 11000;
+  let lastErr = '';
+  for (const p of proxyOrder()) {
+    if (Date.now() > deadline) break;
+    try {
+      const items = await fetchVia(p, feed.url);
+      if (items.length) { FEED_CACHE.set(feed.url, { items, ts: Date.now() }); return { feed, items, status:'connected' }; }
+      lastErr = 'empty';
+    } catch(e) { lastErr = (e && e.message) || 'error'; }
   }
   // Live attempts exhausted — serve last-good real items if still within TTL.
   const c = FEED_CACHE.get(feed.url);
@@ -1213,9 +1209,9 @@ async function loadFeeds() {
   State.feedHealth = health;
   let lastRender = 0;
 
-  // Poll the full catalog (3 at a time) and render progressively as each feed
+  // Poll the full catalog (5 at a time) and render progressively as each feed
   // arrives — content shows up immediately instead of waiting for all 30+ feeds.
-  await poolMap(SOURCES, 3, (f) => fetchFeed(f, 0), (r, idx) => {
+  await poolMap(SOURCES, 5, (f) => fetchFeed(f, 0), (r, idx) => {
     if (job !== loadJobId) return;
     health[idx] = { name: r.feed.name, url: r.feed.url, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error, sampleUrl: (r.items[0] && r.items[0].link) || '' };
     if (r.items.length) for (const it of r.items) acc.push(it);
@@ -1236,7 +1232,7 @@ async function loadFeeds() {
   render();
   // Relentlessly retry any source still not connected until they all are (capped).
   clearTimeout(feedSweepTimer);
-  feedSweepTimer = setTimeout(() => runFeedSweep(8), 8000);
+  feedSweepTimer = setTimeout(() => runFeedSweep(12), 5000);
 }
 
 // ── Auto-retry sweep: re-attempt every still-failed source until all connect ──
@@ -1246,12 +1242,12 @@ function failedFeedIdx(){
 }
 async function runFeedSweep(passesLeft){
   if(passesLeft<=0) return;
-  if(State.loading){ feedSweepTimer=setTimeout(()=>runFeedSweep(passesLeft),12000); return; }
+  if(State.loading){ feedSweepTimer=setTimeout(()=>runFeedSweep(passesLeft),9000); return; }
   const idxs = failedFeedIdx();
   if(!idxs.length) return;                              // every source connected — done
   const job = loadJobId;
   const targets = idxs.map(i=>({ i, feed:{ name:State.feedHealth[i].name, url:State.feedHealth[i].url, group:State.feedHealth[i].group, kind:State.feedHealth[i].kind } }));
-  await poolMap(targets, 2, t=>fetchFeed(t.feed,0).then(r=>({r,i:t.i})), (res)=>{
+  await poolMap(targets, 3, t=>fetchFeed(t.feed,0).then(r=>({r,i:t.i})), (res)=>{
     if(job!==loadJobId) return;
     const {r,i}=res;
     if(r.status==='connected'){
@@ -1262,7 +1258,7 @@ async function runFeedSweep(passesLeft){
   if(job!==loadJobId) return;
   if(State._feedAcc){ buildAlertsFrom(State._feedAcc); State.lastUpdated=new Date(); }
   render();
-  if(failedFeedIdx().length) feedSweepTimer=setTimeout(()=>runFeedSweep(passesLeft-1),12000);
+  if(failedFeedIdx().length) feedSweepTimer=setTimeout(()=>runFeedSweep(passesLeft-1),9000);
 }
 
 // ============================ COUNTDOWN ============================
