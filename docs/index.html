@@ -464,7 +464,7 @@ async function throttleRequest(minGap){
   if (wait) await sleep(wait);
 }
 async function fetchVia(proxy, url) {
-  await throttleRequest(200);
+  await throttleRequest(120);
   const r = await fetch(proxy.build(url), { signal: AbortSignal.timeout(6000) });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   if (proxy.kind === 'json') {
@@ -475,9 +475,12 @@ async function fetchVia(proxy, url) {
   let text;
   if (proxy.kind === 'wrapped') { const d = await r.json(); text = d.contents || ''; }
   else text = await r.text();
-  const items = parseXmlItems(text);
-  if (!items.length) throw new Error('empty/unparseable');
-  return items;
+  // A valid RSS/Atom document with 0 items means the feed was REACHED but had no
+  // recent matches — that's "connected", not "failed". Only a missing RSS root
+  // (proxy error page / garbage) is a real fetch failure.
+  const doc = new DOMParser().parseFromString(text, 'text/xml');
+  if (!doc.querySelector('rss, feed, channel')) throw new Error('unparseable');
+  return parseXmlItems(text);   // may be [] (reached, empty) — caller treats as connected
 }
 function mkItem(title, desc, pub, link, src) {
   return {
@@ -513,9 +516,12 @@ async function fetchFeed(feed, attempt) {
   for (const p of proxyOrder()) {
     if (Date.now() > deadline) break;
     try {
-      const items = await fetchVia(p, feed.url);
+      const items = await fetchVia(p, feed.url);     // any non-throw = REACHED (connected)
       if (items.length) { FEED_CACHE.set(feed.url, { items, ts: Date.now() }); return { feed, items, status:'connected' }; }
-      lastErr = 'empty';
+      // Reached, but no recent items — still connected (don't keep retrying forever).
+      const cc = FEED_CACHE.get(feed.url);
+      if (cc && Date.now()-cc.ts < FEED_CACHE_TTL) return { feed, items: cc.items, status:'connected', cached:true };
+      return { feed, items: [], status:'connected', empty:true };
     } catch(e) { lastErr = (e && e.message) || 'error'; }
   }
   // Live attempts exhausted — serve last-good real items if still within TTL.
@@ -1225,7 +1231,7 @@ async function loadFeeds() {
   // arrives — content shows up immediately instead of waiting for all 30+ feeds.
   await poolMap(SOURCES, 5, (f) => fetchFeed(f, 0), (r, idx) => {
     if (job !== loadJobId) return;
-    health[idx] = { name: r.feed.name, url: r.feed.url, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error, sampleUrl: (r.items[0] && r.items[0].link) || '' };
+    health[idx] = { name: r.feed.name, url: r.feed.url, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error, sampleUrl: (r.items[0] && r.items[0].link) || '', cached: r.cached, empty: r.empty };
     if (r.items.length) for (const it of r.items) acc.push(it);
     const now = Date.now();
     if (now - lastRender > 300) {
@@ -1244,7 +1250,7 @@ async function loadFeeds() {
   render();
   // Relentlessly retry any source still not connected until they all are (capped).
   clearTimeout(feedSweepTimer);
-  feedSweepTimer = setTimeout(() => runFeedSweep(12), 5000);
+  feedSweepTimer = setTimeout(() => runFeedSweep(40), 5000);
 }
 
 // ── Auto-retry sweep: re-attempt every still-failed source until all connect ──
@@ -1263,7 +1269,7 @@ async function runFeedSweep(passesLeft){
     if(job!==loadJobId) return;
     const {r,i}=res;
     if(r.status==='connected'){
-      State.feedHealth[i] = { name:r.feed.name, url:r.feed.url, group:r.feed.group, kind:r.feed.kind, status:'connected', count:r.items.length, error:'', sampleUrl:(r.items[0]&&r.items[0].link)||State.feedHealth[i].sampleUrl, cached:r.cached };
+      State.feedHealth[i] = { name:r.feed.name, url:r.feed.url, group:r.feed.group, kind:r.feed.kind, status:'connected', count:r.items.length, error:'', sampleUrl:(r.items[0]&&r.items[0].link)||State.feedHealth[i].sampleUrl, cached:r.cached, empty:r.empty };
       if(r.items.length && State._feedAcc){ for(const it of r.items) State._feedAcc.push(it); }
     }
   });
@@ -1430,7 +1436,10 @@ function renderWatchlist() {
 
 // Map a browser-side fetch error to a precise, honest reason.
 function sourceReason(s) {
-  if (s.status === 'connected') return s.cached ? ('OK · ' + s.count + ' items (last good, cached)') : ('OK · ' + s.count + ' items fetched');
+  if (s.status === 'connected') {
+    if (s.empty) return 'Connected · no recent matching items';
+    return s.cached ? ('OK · ' + s.count + ' items (last good, cached)') : ('OK · ' + s.count + ' items fetched');
+  }
   if (s.status === 'pending') return 'Checking…';
   const e = s.error || '';
   if (s.status === 'no-items') return 'Reached, but 0 items this poll';
