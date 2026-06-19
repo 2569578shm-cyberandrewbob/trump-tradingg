@@ -452,7 +452,19 @@ function parseXmlItems(text) {
     return mkItem(g('title'), g('description') || g('summary') || g('content'), g('pubDate') || g('updated') || g('published'), href, src);
   });
 }
+// Global outbound throttle: space every proxy request ~280ms apart (across all
+// concurrent workers) so we stay under the free proxies' rate limits instead of
+// bursting 30+ requests at once and getting mass 429/422. Single-threaded JS makes
+// the reserve-a-slot update atomic, so this serializes spacing even at concurrency 5.
+let _lastReqAt = 0;
+async function throttleRequest(minGap){
+  const now = Date.now();
+  const wait = Math.max(0, _lastReqAt + minGap - now);
+  _lastReqAt = now + wait;
+  if (wait) await sleep(wait);
+}
 async function fetchVia(proxy, url) {
+  await throttleRequest(280);
   const r = await fetch(proxy.build(url), { signal: AbortSignal.timeout(6000) });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   if (proxy.kind === 'json') {
