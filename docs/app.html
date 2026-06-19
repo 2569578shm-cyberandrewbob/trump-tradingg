@@ -976,6 +976,20 @@ function dedupNews(items){
 State.mNews=[]; State.mHealth=[]; State.mLoaded=false; State.mLoading=false; State.mLastUpdated=null; State.mError=false;
 State.newsCat='All'; State.newsSource='all'; State.newsSearch='';
 
+// A few owned-stock "cluster" queries (company names grouped) so owned-company
+// news reliably reaches the hub via the light early load — without flooding the
+// free proxies with 34 separate per-ticker feeds. Tagged 'My Stocks'; normalizeNews
+// then detects the exact owned tickers so these rank into the top priority tiers.
+function ownedClusterFeeds(){
+  const names = State.portfolio.map(t=>'"'+((COMPANY[t]&&COMPANY[t].name)||t)+'"');
+  const feeds=[];
+  for(let i=0;i<names.length;i+=6){
+    const grp = names.slice(i,i+6).join(' OR ');
+    feeds.push({ category:'My Stocks', source:'Google News', url: gn('('+grp+') (stock OR earnings OR shares OR analyst) when:4d') });
+  }
+  return feeds; // ~6 feeds for 34 names
+}
+
 // ── Fetcher (#10,#13,#14) — never throws; partial results on source failure ──
 let mJob = 0;
 async function loadMarketNews(){
@@ -989,6 +1003,7 @@ async function loadMarketNews(){
     if(State.route==='news') render();
   }, 22000);
   const feeds=[];
+  ownedClusterFeeds().forEach(f=>feeds.push(f));   // owned-stock news first (priority tiers 1-3)
   NEWS_CATEGORY_FEEDS.forEach(f=>feeds.push({ category:f.cat, source:'Google News', url:gn(f.q) }));
   OFFICIAL_FEEDS.forEach(f=>feeds.push({ category:f.cat, source:f.source, url:f.url }));
   State.mHealth = feeds.map(f=>({ name:f.source+' · '+f.category, status:'pending', count:0 }));
