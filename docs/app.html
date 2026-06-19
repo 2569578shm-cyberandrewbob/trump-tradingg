@@ -464,7 +464,7 @@ async function throttleRequest(minGap){
   if (wait) await sleep(wait);
 }
 async function fetchVia(proxy, url) {
-  await throttleRequest(280);
+  await throttleRequest(200);
   const r = await fetch(proxy.build(url), { signal: AbortSignal.timeout(6000) });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   if (proxy.kind === 'json') {
@@ -1657,9 +1657,11 @@ window.addEventListener('hashchange', () => {
 // of feeds). Primary view (Market News) loads first; the rest load lazily when
 // their tabs/filters open, with a delayed kickstart as a fallback.
 render();
-loadMarketNews();                               // News hub (default view)
-setTimeout(loadFeeds, 9000);                                            // Trump alerts (Dashboard/Trump/Markets)
-setTimeout(() => { if(!State.pLoaded) loadPortfolioNews(); }, 20000);    // My Stocks ticker news (also lazy on tab open)
+loadMarketNews();                               // News hub (default view) — incl. owned-stock cluster feeds
+setTimeout(loadFeeds, 9000);                    // Trump alerts + Sources catalog
+// Portfolio's 34 per-ticker feeds load lazily ONLY when Stocks/My Stocks is opened
+// (the cluster feeds already surface owned-stock news), so they don't compete with
+// the Sources catalog for the throttled proxy budget at boot.
 scheduleRefresh();
 </script>
 <script>
