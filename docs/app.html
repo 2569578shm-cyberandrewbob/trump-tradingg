@@ -221,19 +221,56 @@
   .nav-item .nav-icon { font-size: 19px; display: block; margin-bottom: 2px; }
   .nav-badge { position: absolute; top: 5px; right: 50%; margin-right: -22px; background: var(--critical); color: #fff; font-size: 8px; font-weight: 700; min-width: 15px; height: 15px; border-radius: 9px; padding: 0 4px; display: flex; align-items: center; justify-content: center; }
 
+  /* ── News overhaul: impact pills, ticker priority, open-article, states ── */
+  .src-link.en { direction: ltr; }
+  .impact-pill { font-size: 10px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; padding: 3px 9px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+  .impact-high { background: rgba(229,57,53,.16); color: var(--critical); }
+  .impact-medium { background: rgba(251,140,0,.16); color: var(--high); }
+  .impact-low { background: rgba(120,130,145,.18); color: var(--text2); }
+  .ticker { cursor: pointer; }
+  .ticker.owned { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .news-state { text-align: center; padding: 34px 18px; color: var(--text2); }
+  .news-state .ns-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .news-state .ns-sub { font-size: 12px; margin-bottom: 16px; line-height: 1.5; }
+  .retry-btn { background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 9px 20px; font-size: 13px; font-weight: 700; cursor: pointer; transition: filter .15s; }
+  .retry-btn:hover { filter: brightness(1.1); }
+
+  /* ── Page transition (route change only) ── */
+  #app.route-anim > * { animation: pageIn .24s ease; }
+  @keyframes pageIn { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
+
+  /* ── Header back arrow ── */
+  .back-btn {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    width: 34px; height: 34px; border-radius: 9px; font-size: 23px; line-height: 1; padding: 0 0 3px;
+    display: none; align-items: center; justify-content: center; cursor: pointer; margin-right: 12px;
+    flex-shrink: 0; transition: background .15s, border-color .15s, color .15s;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Bottom nav: active indicator + safe-area + no-wrap labels ── */
+  .bottom-nav { padding-bottom: env(safe-area-inset-bottom, 0); }
+  .nav-item { white-space: nowrap; }
+  .nav-item.active::before { content: ''; position: absolute; top: 0; left: 20%; right: 20%; height: 2.5px; background: var(--accent); border-radius: 0 0 3px 3px; }
+
   @media (max-width: 480px) {
     .bar-label { width: 80px; }
+    .nav-item { font-size: 9px; padding: 9px 2px 7px; }
+    .nav-item .nav-icon { font-size: 17px; }
   }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">
-    <div class="logo-icon">T</div>
-    <div>
-      <div class="logo-text">Trump Trading</div>
-      <div class="logo-sub">Live market intelligence</div>
+  <div style="display:flex;align-items:center;min-width:0">
+    <button id="backBtn" class="back-btn" onclick="back()" aria-label="Back">‹</button>
+    <div class="logo">
+      <div class="logo-icon">T</div>
+      <div>
+        <div class="logo-text">Trump Trading</div>
+        <div class="logo-sub">Live market intelligence</div>
+      </div>
     </div>
   </div>
   <div class="live-badge"><div class="live-dot"></div>LIVE</div>
@@ -476,7 +513,7 @@ const State = {
   alerts: [], feedHealth: [], usingFallback: false,
   route: location.hash.replace('#','') || 'news',
   riskFilter: 'all', categoryFilter: null, search: '',
-  feedLimit: 25,
+  feedLimit: 25, navStack: [],
   watchlist: JSON.parse(localStorage.getItem('tt_watchlist') || '["OIL","SPY","DXY"]'),
   lastUpdated: null, loading: true, error: null,
   refreshMs: parseInt(localStorage.getItem('tt_refresh') || '120000'),
@@ -591,6 +628,8 @@ function pImpact(t){
   return { dir, conf };
 }
 function pMentions(text){ return State.portfolio.filter(tk => COMPANY[tk] && COMPANY[tk].re.test(text)); }
+// Watchlist symbols (ETFs/indices like SPY, OIL, DXY) mentioned by symbol in text.
+function wlMentions(text){ return (State.watchlist||[]).filter(t=>{ const s=String(t).replace(/[^A-Za-z0-9.]/g,''); return s && new RegExp('\\b'+s.replace(/\./g,'\\.')+'\\b','i').test(text); }); }
 function pSectorsOf(tickers){ const s=new Set(); tickers.forEach(t=>(COMPANY[t]?.sectors||[]).forEach(x=>s.add(x))); return [...s]; }
 function pLabel(item){
   if(/trump|white house|president/i.test(item.text)) return 'Trump-related impact';
@@ -619,8 +658,12 @@ State.pFilter = 'all'; State.pSearch = '';
 function savePortfolio(){ localStorage.setItem('tt_portfolio', JSON.stringify(State.portfolio)); }
 
 // ── Fetch (browser RSS via existing proxy chain) ──
+let pJob = 0;
 async function loadPortfolioNews(){
   if(State.pLoading) return; State.pLoading = true; State.pLoaded = true;
+  const job = ++pJob;
+  // Watchdog: stop "scanning" after 28s so My Stocks can never spin forever.
+  const watchdog = setTimeout(()=>{ if(job!==pJob) return; State.pLoading=false; if(['portfolio','stocks'].includes(State.route)||State.route.indexOf('stock/')===0) render(); }, 28000);
   const tickers = State.portfolio.slice();
   State.pHealth = tickers.map(t=>({ ticker:t, status:'pending', count:0 }));
   if(['portfolio','stocks'].includes(State.route)) render();
@@ -651,13 +694,15 @@ async function loadPortfolioNews(){
       };
     }
   });
+  if(job!==pJob){ clearTimeout(watchdog); return; }
+  clearTimeout(watchdog);
   let news = Object.values(acc);
   news.forEach(n => n.label = pLabel(n));
   State.pNews = news.sort((a,b)=> b.pubDate - a.pubDate).slice(0, 300);
   State.pLastUpdated = new Date(); State.pLoading = false;
   if(['portfolio','stocks'].includes(State.route) || State.route.indexOf('stock/')===0) render();
 }
-function refreshPortfolio(){ State.pLoading=false; loadPortfolioNews(); }
+function refreshPortfolio(){ pJob++; State.pLoading=false; loadPortfolioNews(); }
 
 // ── Filters ──
 function pFiltered(){
@@ -867,8 +912,11 @@ const GENERAL_EXTERNAL = [
 const BULLISH = /(beat(s|ing)?|tops? estimates|upgrade[sd]?|raises? (guidance|outlook|target|price target)|approval|approved|strong (demand|results|guidance|quarter)|partnership|record (revenue|quarter|backlog|sales)|outperform|overweight|buy rating|wins? (a )?(contract|deal|order)|surge[sd]?|breakthrough|positive (data|results)|expands?|all-time high)/gi;
 const BEARISH = /(miss(es|ed)?|downgrade[sd]?|investigation|probe|delay(s|ed)?|FDA (hold|rejection|crl)|complete response letter|weak (guidance|demand|results)|cuts? (guidance|outlook|forecast)|\btariff|export (ban|control|restriction)|lawsuit|sued|recall|halt(s|ed)?|warns?|warning|dilution|stock offering|fraud|underperform|underweight|loses? (a )?(contract|customer)|short report)/gi;
 function sentimentOf(t){ const b=(t.match(BULLISH)||[]).length, r=(t.match(BEARISH)||[]).length; return b>r?'bullish': r>b?'bearish':'neutral'; }
-const BREAKING = /(earnings|guidance|FDA (approval|hold|rejection)|merger|acquisition|upgrade|downgrade|trump tariff|china (ban|export)|fed (decision|cut|hike|meeting)|\bCPI\b|\bPPI\b|jobs report|inflation|interest rate|recall|investigation|clinical (trial|readout)|phase 3)/i;
-function impactOf(t, sent){ if(BREAKING.test(t)) return 'high'; if(sent!=='neutral') return 'medium'; return 'low'; }
+// Impact rules — high = market-moving events; medium = product/partnership/price-target/
+// sector; low = opinion/commentary. Tested high→medium→low (first match wins).
+const IMP_HIGH = /(earnings|\bEPS\b|revenue (beat|miss)|guidance|cuts? (guidance|outlook|forecast)|raises? (guidance|outlook|forecast)|\boutlook\b|\b8-?K\b|\b10-?[KQ]\b|SEC (filing|charge|probe|investigat)|merger|acquisition|acquire[sd]?|buyout|takeover|lawsuit|sued|litigation|settlement|antitrust|upgrade[sd]?|downgrade[sd]?|initiat(e|es|ed) (coverage|buy|sell)|\bCEO\b|\bCFO\b|chief (executive|financial)|resign|steps down|appoint|FDA (approval|rejection|hold|crl)|complete response letter|recall|bankrupt|halt(s|ed)?|investigation|\bprobe\b|tariff|sanction|export (ban|control|restriction)|\bwar\b|missile|airstrike|invasion|escalation|phase 3|clinical (trial|readout))/i;
+const IMP_MED = /(launch(es|ed|ing)?|unveil|introduc|partnership|partners with|collaborat|joint venture|\bdeal\b|contract|wins? (a )?(order|contract)|expand|price target|analyst|rating|sector|new (product|model|chip)|reiterate|outperform|underperform|overweight|underweight)/i;
+function impactOf(t, sent){ if(IMP_HIGH.test(t)) return 'high'; if(IMP_MED.test(t)) return 'medium'; if(sent!=='neutral') return 'medium'; return 'low'; }
 function sentColor(s){ return s==='bullish'?'var(--low)':s==='bearish'?'var(--critical)':'var(--text2)'; }
 function impactColorL(l){ return l==='high'?'var(--critical)':l==='medium'?'var(--high)':'var(--text2)'; }
 function pubFrom(title, fallback){ const m=String(title).match(/\s[-–—]\s([A-Za-z0-9 .,'&]{2,42})$/); return m?m[1].trim():(fallback||'News'); }
@@ -884,20 +932,62 @@ function normalizeNews(raw, category, ticker, sourceName){
   const source = (sourceName && !/google news/i.test(sourceName)) ? sourceName : pubFrom(raw.title, sourceName);
   const text = title+' '+(raw.summary||'');
   const sent = sentimentOf(text);
+  // Attach every related ticker (owned + watchlist) detected in the headline/summary
+  // so general-feed articles still surface stock tags and feed prioritization works.
+  const tks = Array.from(new Set([ ...(ticker?[ticker]:[]), ...pMentions(text), ...wlMentions(text) ]));
+  const primary = ticker || tks.find(t=>State.portfolio.includes(t)) || tks[0] || null;
+  const whyTicker = (primary && COMPANY[primary]) ? primary : null;
+  const sectors = Array.from(new Set(tks.flatMap(t=>(COMPANY[t]&&COMPANY[t].sectors)||[])));
   return { title, summary:raw.summary, source, link:raw.link, pubDate:raw.pubDate,
-    category, ticker:ticker||null, company: ticker?(COMPANY[ticker]?.name||ticker):'',
-    sentiment:sent, impact:impactOf(text,sent), sectors: ticker?(COMPANY[ticker]?.sectors||[]):[],
-    why: whyMatters(category, ticker, sent), text };
+    category, ticker:primary, tickers:tks, company: primary?((COMPANY[primary]&&COMPANY[primary].name)||primary):'',
+    sentiment:sent, impact:impactOf(text,sent), sectors,
+    why: whyMatters(category, whyTicker, sent), text };
 }
-function dedupNews(items){ const seen=new Set(); const out=[]; for(const n of items){ const k=(n.title||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().slice(0,55); if(!k||seen.has(k)) continue; seen.add(k); out.push(n); } return out; }
+// Source reputation: lower rank = more reputable, shown first when the same
+// story is carried by several outlets. (#2 source priority)
+const SOURCE_RANK = [
+  [/reuters/i, 1], [/bloomberg/i, 2], [/cnbc/i, 3], [/market\s?watch/i, 4],
+  [/yahoo/i, 5], [/seeking ?alpha/i, 6], [/benzinga/i, 7], [/motley fool|fool\.com|the fool/i, 8],
+];
+function sourceRank(name){ const s=String(name||''); for(const [re,r] of SOURCE_RANK){ if(re.test(s)) return r; } return 9; }
+// Group key for "same story": publisher-stripped, normalized, first significant words.
+function newsKey(n){
+  const t = stripPub(n.title||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').replace(/\b(the|a|an|to|of|for|in|on|as|at|and|is|says|after|amid|over|with)\b/g,' ').replace(/\s+/g,' ').trim();
+  return t.split(' ').slice(0,7).join(' ');
+}
+// Dedup that keeps the MOST reputable source per story and merges ticker tags so
+// no related stock association is lost. Order-independent (callers sort after).
+function dedupNews(items){
+  const best = new Map();
+  for(const n of items){
+    const k = newsKey(n); if(!k) continue;
+    const ex = best.get(k);
+    if(!ex){ best.set(k, n); continue; }
+    const keepNew = sourceRank(n.source) < sourceRank(ex.source)
+      || (sourceRank(n.source)===sourceRank(ex.source) && (n.pubDate>ex.pubDate));
+    const merged = Array.from(new Set([...(ex.tickers||[]), ...(n.tickers||[]), ...(ex.ticker?[ex.ticker]:[]), ...(n.ticker?[n.ticker]:[])]));
+    if(keepNew){ n.tickers = merged; best.set(k, n); }
+    else { ex.tickers = merged; }
+  }
+  return Array.from(best.values());
+}
 
 // ── State ──
-State.mNews=[]; State.mHealth=[]; State.mLoaded=false; State.mLoading=false; State.mLastUpdated=null;
+State.mNews=[]; State.mHealth=[]; State.mLoaded=false; State.mLoading=false; State.mLastUpdated=null; State.mError=false;
 State.newsCat='All'; State.newsSource='all'; State.newsSearch='';
 
 // ── Fetcher (#10,#13,#14) — never throws; partial results on source failure ──
+let mJob = 0;
 async function loadMarketNews(){
-  if(State.mLoading) return; State.mLoading=true; State.mLoaded=true;
+  if(State.mLoading) return; State.mLoading=true; State.mLoaded=true; State.mError=false;
+  const job = ++mJob;
+  // Watchdog: never allow infinite loading. If the network stalls, stop after 22s
+  // and surface a clean retry state instead of an endless spinner.
+  const watchdog = setTimeout(()=>{
+    if(job!==mJob) return;
+    State.mLoading=false; State.mError=(State.mNews||[]).length===0;
+    if(State.route==='news') render();
+  }, 22000);
   const feeds=[];
   NEWS_CATEGORY_FEEDS.forEach(f=>feeds.push({ category:f.cat, source:'Google News', url:gn(f.q) }));
   OFFICIAL_FEEDS.forEach(f=>feeds.push({ category:f.cat, source:f.source, url:f.url }));
@@ -905,17 +995,23 @@ async function loadMarketNews(){
   if(State.route==='news') render();
   const acc=[]; let lastR=0;
   await poolMap(feeds, 3, f=>fetchFeed(f,0), (r,idx)=>{
+    if(job!==mJob) return;
     State.mHealth[idx]={ name:feeds[idx].source+' · '+feeds[idx].category, status:r.status, count:r.items.length, error:r.error };
     for(const it of (r.items||[])) acc.push(normalizeNews(it, feeds[idx].category, null, feeds[idx].source));
     // progressive: surface items as each feed settles instead of waiting for all
-    State.mNews = dedupNews(acc.slice().sort((a,b)=>b.pubDate-a.pubDate)).slice(0,250);
+    State.mNews = dedupNews(acc.slice()).slice(0,250);
     const now=Date.now(); if(State.route==='news' && now-lastR>350){ lastR=now; State.mLastUpdated=new Date(); render(); }
   });
-  State.mNews = dedupNews(acc.sort((a,b)=>b.pubDate-a.pubDate)).slice(0,250);
+  if(job!==mJob){ clearTimeout(watchdog); return; }   // superseded by a newer load
+  clearTimeout(watchdog);
+  State.mNews = dedupNews(acc).slice(0,250);
+  // Only an error if we got nothing AND no feed connected (all sources failed).
+  State.mError = (acc.length===0 && !State.mHealth.some(h=>h.status==='connected'));
   State.mLastUpdated=new Date(); State.mLoading=false;
   if(State.route==='news') render();
 }
-function refreshMarketNews(){ State.mLoading=false; loadMarketNews(); State.pLoaded=false; refreshPortfolio(); }
+function refreshMarketNews(){ mJob++; State.mLoading=false; State.mError=false; loadMarketNews(); State.pLoaded=false; refreshPortfolio(); }
+function retryNews(){ mJob++; State.mLoading=false; State.mError=false; State.mNews=[]; loadMarketNews(); render(); }
 
 // portfolio (ticker) news → unified news shape
 function portfolioAsNews(){
@@ -939,7 +1035,31 @@ function trumpAsNews(){
       why: whyMatters('Trump/Tariffs', (a.tickers||[]).find(t=>COMPANY[t])||null, sent), text:(a.title||'')+' '+(a.summary||'') };
   });
 }
-function combinedNews(){ return dedupNews([...portfolioAsNews(), ...trumpAsNews(), ...State.mNews].sort((a,b)=>b.pubDate-a.pubDate)); }
+// Major-corporate-event keywords used to bump owned-stock news into the top tier.
+const CORP_EVENT = /(earnings|guidance|\bEPS\b|revenue|analyst|upgrade|downgrade|price target|merger|acquisition|buyout|takeover|lawsuit|sued|SEC (filing|charge)|\b8-?K\b|\b10-?[KQ]\b|\bCEO\b|\bCFO\b|resign|appoint|FDA (approval|rejection|hold)|recall|bankrupt)/i;
+// News priority tiers (#STOCK PRIORITY). Lower = shown first.
+//  1 owned + breaking(high)  2 owned + earnings/analyst/corporate  3 owned (other)
+//  4 watchlist  5 sector affecting owned  6 general market
+function newsTier(n, ownSet, wlSet, secSet){
+  const tks = n.tickers || (n.ticker?[n.ticker]:[]);
+  const owned = tks.some(t=>ownSet.has(t));
+  const wl = tks.some(t=>wlSet.has(t));
+  const txt = n.text || ((n.title||'')+' '+(n.summary||''));
+  if(owned && n.impact==='high') return 1;
+  if(owned && CORP_EVENT.test(txt)) return 2;
+  if(owned) return 3;
+  if(wl) return 4;
+  if((n.sectors||[]).some(s=>secSet.has(s))) return 5;
+  return 6;
+}
+function combinedNews(){
+  const ownSet = new Set(State.portfolio), wlSet = new Set(State.watchlist), secSet = new Set();
+  State.portfolio.forEach(t=>((COMPANY[t]&&COMPANY[t].sectors)||[]).forEach(s=>secSet.add(s)));
+  const all = dedupNews([...portfolioAsNews(), ...trumpAsNews(), ...State.mNews]);
+  return all
+    .map(n=>{ n._tier = newsTier(n, ownSet, wlSet, secSet); return n; })
+    .sort((a,b)=> (a._tier - b._tier) || (b.pubDate - a.pubDate));
+}
 
 // ── Hub UI (#6,#7,#8) ──
 const NEWS_CATS = ['All','My Stocks','Market','Economy','Earnings','FDA/Biotech','Semiconductors','AI/Data Center','Energy/Utilities','Trump/Tariffs','Commodities','Crypto','Official Filings'];
@@ -949,11 +1069,11 @@ const SECTOR_CATS = ['FDA/Biotech','Semiconductors','AI/Data Center','Energy/Uti
 function newsFiltered(){
   let list = combinedNews();
   const c = State.newsCat;
-  if(c==='My Stocks') list=list.filter(n=>n.category==='My Stocks');
+  if(c==='My Stocks') list=list.filter(n=>n.category==='My Stocks' || (n.tickers||[]).some(t=>State.portfolio.includes(t)));
   else if(SECTOR_CATS.includes(c)) list=list.filter(n=>n.category===c || (n.sectors||[]).includes(c));
   else if(c!=='All') list=list.filter(n=>n.category===c);
   if(State.newsSource!=='all'){ const re=SOURCE_MATCH[State.newsSource]; if(re) list=list.filter(n=>re.test(n.source||'')); }
-  if(State.newsSearch){ const q=State.newsSearch.toLowerCase(); list=list.filter(n=>((n.title||'')+' '+(n.ticker||'')+' '+(n.company||'')+' '+(n.source||'')).toLowerCase().includes(q)); }
+  if(State.newsSearch){ const q=State.newsSearch.toLowerCase(); list=list.filter(n=>((n.title||'')+' '+((n.tickers||[]).join(' '))+' '+(n.company||'')+' '+(n.source||'')).toLowerCase().includes(q)); }
   return list;
 }
 function setNewsCat(c){ State.newsCat=c; if(c==='My Stocks' && !State.pLoaded) refreshPortfolio(); if(c==='Trump/Tariffs' && !(State.alerts||[]).length && !State.loading) loadFeeds(); render(); }
@@ -964,36 +1084,54 @@ function renderNews(){
   if(!State.mLoaded && !State.mLoading) loadMarketNews();
   // portfolio (34 ticker feeds) loads lazily only when the "My Stocks" filter is
   // chosen — avoids flooding the free proxies on first paint.
-  const conn=State.mHealth.filter(h=>h.status==='connected').length, fail=State.mHealth.filter(h=>h.status==='failed').length;
   const all=combinedNews(); const list=newsFiltered();
   const loading = State.mLoading || State.pLoading;
   return '<div class="page">'+
     '<div class="page-title">Market News</div>'+
-    '<div class="page-subtitle">'+all.length+' items · '+conn+' feeds up · '+fail+' failed'+(loading?' · <span class="mini-spin"></span> loading market news…':'')+(State.mLastUpdated?' · updated '+cairoClock(State.mLastUpdated)+' Cairo':'')+' <span style="color:var(--accent);cursor:pointer" onclick="refreshMarketNews()">↻ Refresh</span></div>'+
+    '<div class="page-subtitle">'+all.length+' stories'+(loading?' · <span class="mini-spin"></span> updating…':'')+(State.mLastUpdated?' · updated '+cairoClock(State.mLastUpdated)+' Cairo':'')+' <span style="color:var(--accent);cursor:pointer" onclick="refreshMarketNews()">↻ Refresh</span></div>'+
     // category filters
     '<div class="filters">'+NEWS_CATS.map(c=>'<button class="filter-btn '+(State.newsCat===c?'active':'')+'" data-risk="'+(c==='My Stocks'?'High':'all')+'" onclick="setNewsCat(\''+c.replace(/'/g,"\\'")+'\')">'+esc(c)+'</button>').join('')+'</div>'+
     // source filters
     '<div style="font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:4px 0 6px">Filter by source</div>'+
     '<div class="filters">'+NEWS_SOURCE_FILTERS.map(s=>'<button class="filter-btn '+(State.newsSource===s?'active':'')+'" data-risk="all" onclick="setNewsSource(\''+s.replace(/'/g,"\\'")+'\')">'+esc(s)+'</button>').join('')+'</div>'+
     '<input class="search-box" id="nSearch" placeholder="Search headline, ticker or source…" value="'+esc(State.newsSearch)+'" oninput="onNewsSearch(this.value)">'+
-    // news list
-    (list.length? list.slice(0,90).map(newsCard).join('')
-      : '<div class="status-msg">'+(loading?'Loading market news…':(State.newsSource!=='all'?'No fetched items from '+esc(State.newsSource)+' right now — open it directly below.':'No news found for this filter.'))+'</div>')+
+    // news list + states (loading / unavailable+retry / empty+retry)
+    (list.length
+      ? list.slice(0,90).map(newsCard).join('')
+      : (loading && !all.length
+          ? '<div class="news-state"><div class="mini-spin"></div><div class="ns-sub" style="margin-top:12px">Loading news…</div></div>'
+          : (State.mError && State.newsCat==='All' && State.newsSource==='all' && !State.newsSearch
+              ? '<div class="news-state"><div class="ns-title">News is temporarily unavailable</div><div class="ns-sub">Please try again.</div><button class="retry-btn" onclick="retryNews()">↻ Retry</button></div>'
+              : (State.newsSource!=='all'
+                  ? '<div class="news-state"><div class="ns-title">No '+esc(State.newsSource)+' stories right now</div><div class="ns-sub">Try another source, or open it directly below.</div><button class="retry-btn" onclick="retryNews()">↻ Retry</button></div>'
+                  : '<div class="news-state"><div class="ns-title">No news found</div><div class="ns-sub">No stories match this filter yet.</div><button class="retry-btn" onclick="retryNews()">↻ Retry</button></div>'))))+
     // external sources (non-fetchable)
     '<div class="section-head">Open source directly</div>'+
     '<div class="chip-row">'+GENERAL_EXTERNAL.map(s=>'<a class="chip" href="'+s.url+'" target="_blank" rel="noopener">'+esc(s.name)+' ↗</a>').join('')+'</div>'+
     '<div class="status-msg" style="text-align:left;font-size:11px;padding:14px 0">⚠️ Informational only. Not financial advice. Market reactions are uncertain. Verify original sources before trading.</div>'+
   '</div>';
 }
+// English "Open article" link button (real URL only — never fabricated).
+function openArticleBtn(url){
+  return isHttpUrl(url)
+    ? '<a class="src-link en" href="'+esc(url.trim())+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Open article ↗</a>'
+    : '<span class="src-link-none" style="direction:ltr">No link available</span>';
+}
 function newsCard(n){
-  const tk = n.ticker ? '<span class="ticker watched" onclick="event.stopPropagation();go(\'stock/'+n.ticker+'\')">'+n.ticker+'</span> ' : '';
-  return '<div class="card"'+(n.link?' onclick="window.open(\''+(n.link||'#').replace(/"/g,'')+'\',\'_blank\')"':'')+'><div class="card-accent" style="background:'+sentColor(n.sentiment)+'"></div><div class="card-body">'+
-    '<div class="card-top"><div class="card-title">'+esc(n.title)+'</div><span class="pill" style="background:'+impactColorL(n.impact)+'22;color:'+impactColorL(n.impact)+'">'+n.impact+'</span></div>'+
-    '<div class="card-source"><span class="source-dot"></span>'+tk+esc(n.source)+' · '+esc(n.category)+' · 🕐 '+relTime(n.pubDate)+'</div>'+
+  const tagList = (n.tickers && n.tickers.length) ? n.tickers : (n.ticker ? [n.ticker] : []);
+  const tags = tagList.slice(0,8).map(t=>{
+    const cls = State.portfolio.includes(t) ? 'owned' : (State.watchlist.includes(t) ? 'watched' : '');
+    return '<span class="ticker '+cls+'" onclick="event.stopPropagation();go(\'stock/'+esc(t)+'\')">'+esc(t)+'</span>';
+  }).join(' ');
+  const impLbl = n.impact==='high' ? 'High impact' : n.impact==='medium' ? 'Medium impact' : 'Low impact';
+  return '<div class="card" style="cursor:default"><div class="card-accent" style="background:'+sentColor(n.sentiment)+'"></div><div class="card-body">'+
+    '<div class="card-top"><div class="card-title">'+esc(n.title)+'</div><span class="impact-pill impact-'+n.impact+'">'+impLbl+'</span></div>'+
+    '<div class="card-source"><span class="source-dot"></span>'+esc(n.source)+' · '+esc(n.category)+' · 🕐 '+relTime(n.pubDate)+'</div>'+
+    (tags ? '<div class="tickers" style="margin:2px 0 9px">'+tags+'</div>' : '')+
     (n.summary?'<div class="card-summary">'+esc(n.summary.slice(0,170))+'</div>':'')+
-    '<div class="card-footer"><span style="font-size:11px;font-weight:700;color:'+sentColor(n.sentiment)+'">'+n.sentiment+'</span>'+
+    '<div class="card-footer"><span style="font-size:11px;font-weight:700;color:'+sentColor(n.sentiment)+'">'+esc(n.sentiment)+'</span>'+
     '<span class="card-time" style="font-size:10px">'+esc(n.why)+'</span></div>'+
-    '<div class="card-links">'+srcLinkOrNote(n.link, 'فتح الخبر')+'</div>'+
+    '<div class="card-links">'+openArticleBtn(n.link)+'</div>'+
   '</div></div>';
 }
 
@@ -1326,7 +1464,44 @@ function openDetail(id) {
 function closeModal() { document.getElementById('modal').classList.remove('open'); }
 
 // ============================ ACTIONS ============================
-function go(route) { State.route = route; location.hash = route; window.scrollTo(0,0); render(); }
+// ── Navigation: history stack + back arrow + swipe + transitions ──
+const NAV_ITEMS = [
+  { r:'news', i:'📰', l:'News' },
+  { r:'stocks', i:'💼', l:'Stocks' },
+  { r:'markets', i:'📈', l:'Markets' },
+  { r:'dashboard', i:'📊', l:'Dashboard' },
+  { r:'alerts', i:'🔔', l:'Alerts' },
+  { r:'sources', i:'📡', l:'Sources' },
+  { r:'settings', i:'⚙️', l:'Settings' },
+];
+function animatePage(){ const app=document.getElementById('app'); if(!app) return; app.classList.remove('route-anim'); void app.offsetWidth; app.classList.add('route-anim'); }
+function navTo(route, push){
+  if(push && State.route!==route) State.navStack.push(State.route);
+  State.route = route; location.hash = route; window.scrollTo(0,0); render(); animatePage();
+}
+function go(route){ navTo(route, true); }
+// Back returns to the PREVIOUS screen (not always home); closes the modal first if open.
+function back(){
+  const m=document.getElementById('modal'); if(m && m.classList.contains('open')){ closeModal(); return; }
+  if(State.navStack.length) navTo(State.navStack.pop(), false);
+  else navTo('news', false);
+}
+function curNavIndex(){ const i=NAV_ITEMS.findIndex(x=>x.r===State.route); return i<0?0:i; }
+function nextTab(){ navTo(NAV_ITEMS[(curNavIndex()+1)%NAV_ITEMS.length].r, false); }
+function prevTab(){ navTo(NAV_ITEMS[(curNavIndex()-1+NAV_ITEMS.length)%NAV_ITEMS.length].r, false); }
+// Swipe: left → next page, right → go back (previous screen, else previous tab).
+(function(){
+  let x0=0,y0=0,t0=0;
+  document.addEventListener('touchstart', e=>{ const t=e.changedTouches[0]; x0=t.clientX; y0=t.clientY; t0=Date.now(); }, {passive:true});
+  document.addEventListener('touchend', e=>{
+    const m=document.getElementById('modal'); if(m && m.classList.contains('open')) return;
+    const t=e.changedTouches[0]; const dx=t.clientX-x0, dy=t.clientY-y0, dt=Date.now()-t0;
+    if(dt>700) return;
+    if(Math.abs(dx)<60 || Math.abs(dx) < Math.abs(dy)*1.6) return;  // not a clean horizontal swipe
+    if(dx<0) nextTab();
+    else { if(State.navStack.length) back(); else prevTab(); }
+  }, {passive:true});
+})();
 function setRiskFilter(r) { State.riskFilter = r; State.feedLimit = 25; render(); }
 function setCategory(c) { State.categoryFilter = c; render(); }
 function onSearch(v) { State.search = v; render(); const i=document.querySelector('.search-box'); if(i){i.focus();i.setSelectionRange(v.length,v.length);} }
@@ -1374,21 +1549,19 @@ function renderMarkets() {
 }
 
 function renderNav() {
-  const items = [
-    { r:'news', i:'📰', l:'News' },
-    { r:'stocks', i:'💼', l:'Stocks' },
-    { r:'dashboard', i:'📊', l:'Dashboard' },
-    { r:'alerts', i:'🔔', l:'Trump' },
-    { r:'markets', i:'📈', l:'Markets' },
-    { r:'sources', i:'📡', l:'Sources' },
-    { r:'settings', i:'⚙️', l:'Settings' },
-  ];
   const critCount = State.alerts.filter(a=>a.risk==='Critical').length;
-  document.getElementById('bottomNav').innerHTML = items.map(it =>
-    '<div class="nav-item '+(State.route===it.r?'active':'')+'" onclick="go(\''+it.r+'\')">' +
+  const cur = State.route;
+  // A nav tab is "active" when on its route OR a sub-page that belongs to it
+  // (stock/* belongs to Stocks) so the bar never looks like nothing is selected.
+  const activeRoute = cur.indexOf('stock/')===0 ? 'stocks' : cur;
+  document.getElementById('bottomNav').innerHTML = NAV_ITEMS.map(it =>
+    '<div class="nav-item '+(activeRoute===it.r?'active':'')+'" onclick="go(\''+it.r+'\')">' +
       '<span class="nav-icon">'+it.i+'</span>'+it.l +
       (it.r==='alerts' && critCount ? '<span class="nav-badge">'+critCount+'</span>' : '') +
     '</div>').join('');
+  // Show the header back arrow on sub-pages or whenever we have history to pop.
+  const bb = document.getElementById('backBtn');
+  if(bb){ const show = cur.indexOf('stock/')===0 || State.navStack.length>0; bb.style.display = show ? 'flex' : 'none'; }
 }
 
 function skeletonPage() {
@@ -1397,7 +1570,11 @@ function skeletonPage() {
   return s + '</div>';
 }
 
-window.addEventListener('hashchange', () => { State.route = location.hash.replace('#','')||'dashboard'; render(); });
+window.addEventListener('hashchange', () => {
+  const r = location.hash.replace('#','')||'news';
+  if(r===State.route) return;            // already handled by navTo()
+  State.route = r; render(); animatePage();
+});
 
 // ============================ BOOT ============================
 // Stagger network so the free CORS proxies aren't flooded (each load is a batch
