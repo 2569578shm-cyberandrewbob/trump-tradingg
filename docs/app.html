@@ -386,15 +386,16 @@ function gsite(site){ return gn('Trump site:' + site + ' when:3d'); }
 // Full source catalog (grouped). Every source here is polled and shown on the
 // Sources screen with live status.
 const SOURCES = [
-  // ── Official US government ──
-  { name: 'White House — News',         url: 'https://www.whitehouse.gov/news/feed/',                 group: 'Official', kind: 'official' },
-  { name: 'White House — Actions',      url: 'https://www.whitehouse.gov/presidential-actions/feed/', group: 'Official', kind: 'official' },
-  { name: 'Federal Register — Presidential', url: 'https://www.federalregister.gov/api/v1/documents.rss?conditions%5Btype%5D%5B%5D=PRESDOCU&order=newest', group: 'Official', kind: 'official' },
-  // ── Market & financial ──
-  { name: 'CNBC — Top News',            url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html', group: 'Market', kind: 'news' },
-  { name: 'CNBC — Economy',             url: 'https://www.cnbc.com/id/20910258/device/rss/rss.html',  group: 'Market', kind: 'news' },
-  { name: 'MarketWatch — Top',          url: 'https://feeds.content.dowjones.io/public/rss/mw_topstories', group: 'Market', kind: 'news' },
-  { name: 'Yahoo Finance',              url: 'https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC&region=US&lang=en-US', group: 'Market', kind: 'news' },
+  // ── Official US government (routed via Google News RSS — the direct .gov feeds
+  //    sit behind Cloudflare and fail through public CORS proxies) ──
+  { name: 'White House — News',         url: gn('"White House" announcement OR statement OR briefing when:2d'), group: 'Official', kind: 'official' },
+  { name: 'White House — Actions',      url: gn('executive order OR presidential action OR proclamation when:5d'), group: 'Official', kind: 'official' },
+  { name: 'Federal Register — Presidential', url: gn('Federal Register presidential document OR executive order when:7d'), group: 'Official', kind: 'official' },
+  // ── Market & financial (via Google News RSS for reliable cross-origin fetch) ──
+  { name: 'CNBC — Top News',            url: gn('stock market OR Wall Street site:cnbc.com when:1d'), group: 'Market', kind: 'news' },
+  { name: 'CNBC — Economy',             url: gn('economy OR inflation OR Fed site:cnbc.com when:2d'),  group: 'Market', kind: 'news' },
+  { name: 'MarketWatch — Top',          url: gn('markets OR stocks site:marketwatch.com when:1d'),     group: 'Market', kind: 'news' },
+  { name: 'Yahoo Finance',              url: gn('stock market site:finance.yahoo.com when:1d'),        group: 'Market', kind: 'news' },
   { name: 'Reuters · Trump',            url: gsite('reuters.com'),     group: 'Market', kind: 'news' },
   { name: 'CNBC · Trump',               url: gsite('cnbc.com'),        group: 'Market', kind: 'news' },
   { name: 'MarketWatch · Trump',        url: gsite('marketwatch.com'), group: 'Market', kind: 'news' },
@@ -430,10 +431,12 @@ const SOURCES = [
 // because its free tier rate-limits (the 503s you saw on Google News / AP).
 const PROXIES = [
   { name: 'allorigins-raw', kind: 'xml',     build: u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u) },
-  { name: 'allorigins-get', kind: 'wrapped', build: u => 'https://api.allorigins.win/get?url=' + encodeURIComponent(u) },
   { name: 'codetabs',       kind: 'xml',     build: u => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u) },
   { name: 'corsproxy',      kind: 'xml',     build: u => 'https://corsproxy.io/?url=' + encodeURIComponent(u) },
+  { name: 'allorigins-get', kind: 'wrapped', build: u => 'https://api.allorigins.win/get?url=' + encodeURIComponent(u) },
   { name: 'rss2json',       kind: 'json',    build: u => 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(u) + '&count=25' },
+  { name: 'thingproxy',     kind: 'xml',     build: u => 'https://thingproxy.freeboard.io/fetch/' + u },
+  { name: 'corsing',        kind: 'xml',     build: u => 'https://api.cors.lol/?url=' + encodeURIComponent(u) },
 ];
 
 function parseXmlItems(text) {
@@ -480,17 +483,37 @@ function proxyOrder() {
   const start = (proxyRotation++) % n;
   return PROXIES.slice(start).concat(PROXIES.slice(0, start));
 }
+// Last-good cache: once a feed returns real items we keep them, so a transient
+// proxy rate-limit never flaps a working source to "failed" — we serve the last
+// real items we actually fetched (NOT fabricated). Also lets quick re-polls and
+// the retry sweep skip already-fresh feeds and spend the proxy budget on failures.
+const FEED_CACHE = new Map();              // url -> { items, ts }
+const FEED_FRESH_MS = 60000;              // serve cached immediately if < 60s old
+const FEED_CACHE_TTL = 6 * 3600e3;        // fall back to cached items up to 6h
 async function fetchFeed(feed, attempt) {
-  attempt = attempt || 0;
-  if (attempt > 0) await sleep(700 + Math.random() * 600);
-  let lastErr = '';
-  for (const p of proxyOrder()) {
-    try { const items = await fetchVia(p, feed.url); return { feed, items, status: items.length ? 'connected' : 'no-items' }; }
-    catch(e) { lastErr = (e && e.message) || 'error'; }
+  const fresh = FEED_CACHE.get(feed.url);
+  if (fresh && Date.now()-fresh.ts < FEED_FRESH_MS) return { feed, items: fresh.items, status:'connected', cached:true };
+  // Relentless: cycle every proxy, multiple passes with backoff+jitter, until a
+  // hard per-feed deadline. Most feeds succeed on the first proxy in ~1-2s; only
+  // genuinely rate-limited ones use the full budget.
+  const deadline = Date.now() + 22000;
+  let lastErr = '', pass = 0;
+  while (Date.now() < deadline) {
+    if (pass > 0) await sleep(400 + pass*250 + Math.random()*500);
+    for (const p of proxyOrder()) {
+      if (Date.now() > deadline) break;
+      try {
+        const items = await fetchVia(p, feed.url);
+        if (items.length) { FEED_CACHE.set(feed.url, { items, ts: Date.now() }); return { feed, items, status:'connected' }; }
+        lastErr = 'empty';
+      } catch(e) { lastErr = (e && e.message) || 'error'; }
+    }
+    pass++;
   }
-  // One transient retry — keep the budget small so the feed never blocks the UI.
-  if (attempt < 1) return fetchFeed(feed, attempt + 1);
-  return { feed, items: [], status: 'failed', error: lastErr };
+  // Live attempts exhausted — serve last-good real items if still within TTL.
+  const c = FEED_CACHE.get(feed.url);
+  if (c && Date.now()-c.ts < FEED_CACHE_TTL) return { feed, items: c.items, status:'connected', cached:true };
+  return { feed, items: [], status:'failed', error: lastErr };
 }
 // Limited-concurrency map; calls onResult(result, index) as EACH feed settles so
 // the UI can render progressively instead of waiting for every feed.
@@ -1185,13 +1208,14 @@ async function loadFeeds() {
   renderRefreshBar();
 
   const acc = [];
+  State._feedAcc = acc;                 // shared with the retry sweep so recovered feeds append here
   const health = SOURCES.map(s => ({ name: s.name, url: s.url, group: s.group, kind: s.kind, status: 'pending', count: 0 }));
   State.feedHealth = health;
   let lastRender = 0;
 
-  // Poll the full catalog (4 at a time) and render progressively as each feed
+  // Poll the full catalog (3 at a time) and render progressively as each feed
   // arrives — content shows up immediately instead of waiting for all 30+ feeds.
-  await poolMap(SOURCES, 4, (f) => fetchFeed(f, 0), (r, idx) => {
+  await poolMap(SOURCES, 3, (f) => fetchFeed(f, 0), (r, idx) => {
     if (job !== loadJobId) return;
     health[idx] = { name: r.feed.name, url: r.feed.url, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error, sampleUrl: (r.items[0] && r.items[0].link) || '' };
     if (r.items.length) for (const it of r.items) acc.push(it);
@@ -1210,6 +1234,35 @@ async function loadFeeds() {
   State.lastUpdated = new Date();
   State.loading = false;
   render();
+  // Relentlessly retry any source still not connected until they all are (capped).
+  clearTimeout(feedSweepTimer);
+  feedSweepTimer = setTimeout(() => runFeedSweep(8), 8000);
+}
+
+// ── Auto-retry sweep: re-attempt every still-failed source until all connect ──
+let feedSweepTimer = null;
+function failedFeedIdx(){
+  return State.feedHealth.map((s,i)=>i).filter(i=>{ const s=State.feedHealth[i]; return s && s.status!=='connected' && s.status!=='pending'; });
+}
+async function runFeedSweep(passesLeft){
+  if(passesLeft<=0) return;
+  if(State.loading){ feedSweepTimer=setTimeout(()=>runFeedSweep(passesLeft),12000); return; }
+  const idxs = failedFeedIdx();
+  if(!idxs.length) return;                              // every source connected — done
+  const job = loadJobId;
+  const targets = idxs.map(i=>({ i, feed:{ name:State.feedHealth[i].name, url:State.feedHealth[i].url, group:State.feedHealth[i].group, kind:State.feedHealth[i].kind } }));
+  await poolMap(targets, 2, t=>fetchFeed(t.feed,0).then(r=>({r,i:t.i})), (res)=>{
+    if(job!==loadJobId) return;
+    const {r,i}=res;
+    if(r.status==='connected'){
+      State.feedHealth[i] = { name:r.feed.name, url:r.feed.url, group:r.feed.group, kind:r.feed.kind, status:'connected', count:r.items.length, error:'', sampleUrl:(r.items[0]&&r.items[0].link)||State.feedHealth[i].sampleUrl, cached:r.cached };
+      if(r.items.length && State._feedAcc){ for(const it of r.items) State._feedAcc.push(it); }
+    }
+  });
+  if(job!==loadJobId) return;
+  if(State._feedAcc){ buildAlertsFrom(State._feedAcc); State.lastUpdated=new Date(); }
+  render();
+  if(failedFeedIdx().length) feedSweepTimer=setTimeout(()=>runFeedSweep(passesLeft-1),12000);
 }
 
 // ============================ COUNTDOWN ============================
@@ -1369,7 +1422,7 @@ function renderWatchlist() {
 
 // Map a browser-side fetch error to a precise, honest reason.
 function sourceReason(s) {
-  if (s.status === 'connected') return 'OK · ' + s.count + ' items fetched';
+  if (s.status === 'connected') return s.cached ? ('OK · ' + s.count + ' items (last good, cached)') : ('OK · ' + s.count + ' items fetched');
   if (s.status === 'pending') return 'Checking…';
   const e = s.error || '';
   if (s.status === 'no-items') return 'Reached, but 0 items this poll';
