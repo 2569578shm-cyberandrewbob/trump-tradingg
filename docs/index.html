@@ -1043,7 +1043,7 @@ async function loadMarketNews(){
     for(const it of (r.items||[])) acc.push(normalizeNews(it, feeds[idx].category, null, feeds[idx].source));
     // progressive: surface items as each feed settles instead of waiting for all
     State.mNews = dedupNews(acc.slice()).slice(0,250);
-    const now=Date.now(); if(State.route==='news' && now-lastR>350){ lastR=now; State.mLastUpdated=new Date(); render(); }
+    const now=Date.now(); if(State.route==='news' && now-lastR>700){ lastR=now; State.mLastUpdated=new Date(); render(); }
   });
   if(job!==mJob){ clearTimeout(watchdog); return; }   // superseded by a newer load
   clearTimeout(watchdog);
@@ -1225,7 +1225,7 @@ async function loadFeeds() {
     health[idx] = { name: r.feed.name, url: r.feed.url, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error, sampleUrl: (r.items[0] && r.items[0].link) || '', cached: r.cached, empty: r.empty };
     if (r.items.length) for (const it of r.items) acc.push(it);
     const now = Date.now();
-    if (now - lastRender > 300) {
+    if (now - lastRender > 700) {
       lastRender = now;
       buildAlertsFrom(acc);
       State.lastUpdated = new Date();
@@ -1548,7 +1548,16 @@ const NAV_ITEMS = [
   { r:'sources', i:'📡', l:'Sources' },
   { r:'settings', i:'⚙️', l:'Settings' },
 ];
-function animatePage(){ const app=document.getElementById('app'); if(!app) return; app.classList.remove('route-anim'); void app.offsetWidth; app.classList.add('route-anim'); }
+let _animTimer = null;
+function animatePage(){
+  const app=document.getElementById('app'); if(!app) return;
+  app.classList.remove('route-anim'); void app.offsetWidth; app.classList.add('route-anim');
+  // Remove the class once the one-shot transition is done, otherwise every later
+  // re-render (progressive feed updates, refresh, filter clicks) would replay the
+  // fade-in and make the page blink. Animate only on actual navigation.
+  clearTimeout(_animTimer);
+  _animTimer = setTimeout(() => { const a=document.getElementById('app'); if(a) a.classList.remove('route-anim'); }, 300);
+}
 function navTo(route, push){
   if(push && State.route!==route) State.navStack.push(State.route);
   State.route = route; location.hash = route; window.scrollTo(0,0); render(); animatePage();
