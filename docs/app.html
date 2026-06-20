@@ -229,6 +229,8 @@
   .impact-low { background: rgba(120,130,145,.18); color: var(--text2); }
   .ticker { cursor: pointer; }
   .ticker.owned { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tk-dir { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
+  .tk-arrow { font-size: 12px; font-weight: 900; line-height: 1; }
   .news-state { text-align: center; padding: 34px 18px; color: var(--text2); }
   .news-state .ns-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
   .news-state .ns-sub { font-size: 12px; margin-bottom: 16px; line-height: 1.5; }
@@ -1160,11 +1162,19 @@ function openArticleBtn(url){
     ? '<a class="src-link en" href="'+esc(url.trim())+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Open article ↗</a>'
     : '<span class="src-link-none" style="direction:ltr">No link available</span>';
 }
+// Directional arrow for a ticker tag: green ▲ if the story reads positive for the
+// stock, red ▼ if negative, grey – if neutral/uncertain.
+function dirArrow(sent){
+  if(sent==='bullish') return '<span class="tk-arrow" style="color:var(--low)">▲</span>';
+  if(sent==='bearish') return '<span class="tk-arrow" style="color:var(--critical)">▼</span>';
+  return '<span class="tk-arrow" style="color:var(--text2)">–</span>';
+}
 function newsCard(n){
   const tagList = (n.tickers && n.tickers.length) ? n.tickers : (n.ticker ? [n.ticker] : []);
+  const arrow = dirArrow(n.sentiment);
   const tags = tagList.slice(0,8).map(t=>{
     const cls = State.portfolio.includes(t) ? 'owned' : (State.watchlist.includes(t) ? 'watched' : '');
-    return '<span class="ticker '+cls+'" onclick="event.stopPropagation();go(\'stock/'+esc(t)+'\')">'+esc(t)+'</span>';
+    return '<span class="tk-dir" onclick="event.stopPropagation();go(\'stock/'+esc(t)+'\')">'+arrow+'<span class="ticker '+cls+'">'+esc(t)+'</span></span>';
   }).join(' ');
   const impLbl = n.impact==='high' ? 'High impact' : n.impact==='medium' ? 'Medium impact' : 'Low impact';
   return '<div class="card" style="cursor:default"><div class="card-accent" style="background:'+sentColor(n.sentiment)+'"></div><div class="card-body">'+
