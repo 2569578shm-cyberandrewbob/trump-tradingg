@@ -385,46 +385,22 @@ function gsite(site){ return gn('Trump site:' + site + ' when:3d'); }
 
 // Full source catalog (grouped). Every source here is polled and shown on the
 // Sources screen with live status.
+// Lean, tech/portfolio-focused catalog. Every source is a Google News RSS query
+// (reliable cross-origin) and the small count keeps us well under the free proxies'
+// rate limits, so they actually all connect. Each is polled and shown on Sources.
 const SOURCES = [
-  // ── Official US government (routed via Google News RSS — the direct .gov feeds
-  //    sit behind Cloudflare and fail through public CORS proxies) ──
-  { name: 'White House — News',         url: gn('"White House" announcement OR statement OR briefing when:2d'), group: 'Official', kind: 'official' },
-  { name: 'White House — Actions',      url: gn('executive order OR presidential action OR proclamation when:5d'), group: 'Official', kind: 'official' },
-  { name: 'Federal Register — Presidential', url: gn('Federal Register presidential document OR executive order when:7d'), group: 'Official', kind: 'official' },
-  // ── Market & financial (via Google News RSS for reliable cross-origin fetch) ──
-  { name: 'CNBC — Top News',            url: gn('stock market OR Wall Street site:cnbc.com when:1d'), group: 'Market', kind: 'news' },
-  { name: 'CNBC — Economy',             url: gn('economy OR inflation OR Fed site:cnbc.com when:2d'),  group: 'Market', kind: 'news' },
-  { name: 'MarketWatch — Top',          url: gn('markets OR stocks site:marketwatch.com when:1d'),     group: 'Market', kind: 'news' },
-  { name: 'Yahoo Finance',              url: gn('stock market site:finance.yahoo.com when:1d'),        group: 'Market', kind: 'news' },
-  { name: 'Reuters · Trump',            url: gsite('reuters.com'),     group: 'Market', kind: 'news' },
-  { name: 'CNBC · Trump',               url: gsite('cnbc.com'),        group: 'Market', kind: 'news' },
-  { name: 'MarketWatch · Trump',        url: gsite('marketwatch.com'), group: 'Market', kind: 'news' },
-  // ── General reliable news ──
-  { name: 'Google News · Trump',        url: gn('Trump when:1d'),      group: 'General', kind: 'news' },
-  { name: 'AP · Trump',                 url: gsite('apnews.com'),      group: 'General', kind: 'news' },
-  { name: 'BBC · Trump',                url: gsite('bbc.com'),         group: 'General', kind: 'news' },
-  { name: 'CNN · Trump',                url: gsite('cnn.com'),         group: 'General', kind: 'news' },
-  { name: 'Fox News · Trump',           url: gsite('foxnews.com'),     group: 'General', kind: 'news' },
-  { name: 'The Guardian · Trump',       url: gsite('theguardian.com'), group: 'General', kind: 'news' },
-  { name: 'Politico · Trump',           url: gsite('politico.com'),    group: 'General', kind: 'news' },
-  { name: 'Axios · Trump',              url: gsite('axios.com'),       group: 'General', kind: 'news' },
-  { name: 'The Hill · Trump',           url: gsite('thehill.com'),     group: 'General', kind: 'news' },
-  { name: 'NPR · Trump',                url: gsite('npr.org'),         group: 'General', kind: 'news' },
-  { name: 'CBS News · Trump',           url: gsite('cbsnews.com'),     group: 'General', kind: 'news' },
-  { name: 'ABC News · Trump',           url: gsite('abcnews.go.com'),  group: 'General', kind: 'news' },
-  { name: 'NBC News · Trump',           url: gsite('nbcnews.com'),     group: 'General', kind: 'news' },
-  { name: 'New York Times · Trump',     url: gsite('nytimes.com'),     group: 'General', kind: 'news' },
-  { name: 'Washington Post · Trump',    url: gsite('washingtonpost.com'), group: 'General', kind: 'news' },
-  // ── International / geopolitical ──
-  { name: 'Al Jazeera · Trump',         url: gsite('aljazeera.com'),   group: 'Geopolitical', kind: 'news' },
-  { name: 'France24 · Trump',           url: gsite('france24.com'),    group: 'Geopolitical', kind: 'news' },
-  { name: 'DW · Trump',                 url: gsite('dw.com'),          group: 'Geopolitical', kind: 'news' },
-  { name: 'Wars & Conflicts',           url: gn('war OR conflict OR ceasefire OR strike when:1d'), group: 'Geopolitical', kind: 'news' },
-  { name: 'Middle East',                url: gn('Gaza OR Israel OR Iran when:1d'),  group: 'Geopolitical', kind: 'news' },
-  { name: 'Ukraine / Russia',           url: gn('Ukraine Russia when:1d'),          group: 'Geopolitical', kind: 'news' },
-  // ── Truth Social via News ──
-  { name: 'Truth Social via News — core',    url: gn('Trump "Truth Social" when:3d'), group: 'Truth Social via News', kind: 'news' },
-  { name: 'Truth Social via News — markets', url: gn('Trump "Truth Social" (tariff OR oil OR crypto OR stocks OR Fed OR sanctions) when:3d'), group: 'Truth Social via News', kind: 'news' },
+  // ── Markets ──
+  { name: 'Reuters — Markets',    url: gn('stock market OR tech OR chips OR earnings site:reuters.com when:2d'), group: 'Markets', kind: 'news' },
+  { name: 'CNBC — Markets',       url: gn('stock market OR tech OR chips site:cnbc.com when:2d'),                group: 'Markets', kind: 'news' },
+  { name: 'Bloomberg — Markets',  url: gn('stocks OR tech OR semiconductors site:bloomberg.com when:2d'),       group: 'Markets', kind: 'news' },
+  { name: 'MarketWatch',          url: gn('markets OR stocks site:marketwatch.com when:2d'),                    group: 'Markets', kind: 'news' },
+  { name: 'Yahoo Finance',        url: gn('stock market OR tech stocks site:finance.yahoo.com when:2d'),        group: 'Markets', kind: 'news' },
+  // ── Tech / portfolio themes ──
+  { name: 'Semiconductors & AI',  url: gn('semiconductor OR "AI chips" OR "data center" OR GPU when:2d'),       group: 'Tech', kind: 'news' },
+  { name: 'Tech Earnings',        url: gn('tech earnings OR guidance OR analyst upgrade OR downgrade when:2d'),  group: 'Tech', kind: 'news' },
+  { name: 'Space & Quantum',      url: gn('space stocks OR satellite OR "quantum computing" OR rocket launch when:3d'), group: 'Tech', kind: 'news' },
+  // ── Policy (tariffs / chips) ──
+  { name: 'Trump / Tariffs',      url: gn('Trump tariffs chips China export controls when:2d'),                 group: 'Policy', kind: 'news' },
 ];
 
 // CORS proxies, tried in order. allorigins is most reliable; rss2json last
@@ -464,7 +440,7 @@ async function throttleRequest(minGap){
   if (wait) await sleep(wait);
 }
 async function fetchVia(proxy, url) {
-  await throttleRequest(120);
+  await throttleRequest(80);
   const r = await fetch(proxy.build(url), { signal: AbortSignal.timeout(6000) });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   if (proxy.kind === 'json') {
@@ -508,10 +484,10 @@ const FEED_CACHE_TTL = 6 * 3600e3;        // fall back to cached items up to 6h
 async function fetchFeed(feed, attempt) {
   const fresh = FEED_CACHE.get(feed.url);
   if (fresh && Date.now()-fresh.ts < FEED_FRESH_MS) return { feed, items: fresh.items, status:'connected', cached:true };
-  // One fast cycle through the proxies (capped ~11s) so a failing feed never hogs
-  // a worker slot — the background sweep provides the relentless persistence and
-  // re-attempts until it connects. Most feeds succeed on the first proxy in ~1-2s.
-  const deadline = Date.now() + 11000;
+  // Fail FAST on the initial pass (~6s) so loadFeeds completes quickly and the
+  // background sweep — the relentless part — actually gets to run before the next
+  // auto-refresh. The 6h last-good cache keeps connected sources sticky meanwhile.
+  const deadline = Date.now() + 6000;
   let lastErr = '';
   for (const p of proxyOrder()) {
     if (Date.now() > deadline) break;
@@ -551,7 +527,7 @@ const State = {
   route: location.hash.replace('#','') || 'news',
   riskFilter: 'all', categoryFilter: null, search: '',
   feedLimit: 25, navStack: [],
-  watchlist: JSON.parse(localStorage.getItem('tt_watchlist') || '["OIL","SPY","DXY"]'),
+  watchlist: JSON.parse(localStorage.getItem('tt_watchlist') || '[]'),
   lastUpdated: null, loading: true, error: null,
   refreshMs: parseInt(localStorage.getItem('tt_refresh') || '120000'),
 };
@@ -562,75 +538,72 @@ function saveWatchlist() { localStorage.setItem('tt_watchlist', JSON.stringify(S
 // ============================================================================
 // Current watchlist (editable in My Stocks). Versioned so the new default
 // migrates over an older saved one.
-const PORTFOLIO_VERSION = 2;
+const PORTFOLIO_VERSION = 3;
+// ── Synced from the user's live IBKR account (read-only positions) ──
 const DEFAULT_PORTFOLIO = [
-  'LLY','NVO','AZN','RHHBY','AMGN','PFE','MRK',
-  'VKTX','GPCR','ZLDPF','ALT','TERN',
-  'HIMS','WW','LFMD','MCK','CAH','COR',
-  'NVDA','SNPS','MRVL','AMD','AMAT','AVGO','LRCX','CDNS',
-  'VRT','ANET','CEG','PLTR',
-  'VST','GEV','ETN','TSM',
+  'AAOI','ALAB','AMAT','AMD','AMZN','ARM','ASML','ASTS','BWXT','CRM',
+  'CRWV','INTC','IONQ','IREN','LRCX','MRVL','MU','NBIS','ORCL','OUST',
+  'POET','QCOM','RGTI','RKLB','SKM','SNDK','SOFI','SPCX','STX','TSM',
+  'VRT','WDC','ZM',
 ];
 // ticker → { name, search query phrase, sectors, regex of mentions, verify flag, note }
 const COMPANY = {
-  // ── Pharma / Biotech (incl. GLP-1 / obesity) ──
-  LLY:   { name:'Eli Lilly', search:'"Eli Lilly" (Zepbound OR Mounjaro OR orforglipron OR FDA OR earnings)', sectors:['FDA/Biotech'], re:/eli lilly|\bLLY\b|zepbound|mounjaro/i },
-  NVO:   { name:'Novo Nordisk', search:'"Novo Nordisk" (Wegovy OR Ozempic OR FDA OR earnings)', sectors:['FDA/Biotech'], re:/novo nordisk|\bNVO\b|wegovy|ozempic/i },
-  AZN:   { name:'AstraZeneca', search:'"AstraZeneca"', sectors:['FDA/Biotech'], re:/astrazeneca|\bAZN\b/i },
-  RHHBY: { name:'Roche Holding', search:'"Roche" (pharma OR drug OR FDA OR earnings)', sectors:['FDA/Biotech'], re:/\broche\b|\bRHHBY\b/i, verify:true, note:'OTC ADR (RHHBY) — thin US listing; verify the security.' },
-  AMGN:  { name:'Amgen', search:'"Amgen"', sectors:['FDA/Biotech'], re:/\bamgen\b|\bAMGN\b/i },
-  PFE:   { name:'Pfizer', search:'"Pfizer"', sectors:['FDA/Biotech'], re:/\bpfizer\b|\bPFE\b/i },
-  MRK:   { name:'Merck', search:'"Merck" (Keytruda OR FDA OR earnings)', sectors:['FDA/Biotech'], re:/\bmerck\b|\bMRK\b|keytruda/i },
-  VKTX:  { name:'Viking Therapeutics', search:'"Viking Therapeutics"', sectors:['FDA/Biotech'], re:/viking therapeutics|\bVKTX\b/i },
-  GPCR:  { name:'Structure Therapeutics', search:'"Structure Therapeutics"', sectors:['FDA/Biotech'], re:/structure therapeutics|\bGPCR\b/i },
-  ZLDPF: { name:'Zealand Pharma', search:'"Zealand Pharma"', sectors:['FDA/Biotech'], re:/zealand pharma|\bZLDPF\b/i, verify:true, note:'OTC ADR (ZLDPF); primary listing is Copenhagen — verify the security.' },
-  ALT:   { name:'Altimmune', search:'"Altimmune" (pemvidutide OR obesity)', sectors:['FDA/Biotech'], re:/altimmune|\bALT\b|pemvidutide/i },
-  TERN:  { name:'Terns Pharmaceuticals', search:'"Terns Pharmaceuticals"', sectors:['FDA/Biotech'], re:/terns pharma|\bTERN\b/i },
-  HIMS:  { name:'Hims & Hers Health', search:'"Hims & Hers"', sectors:['FDA/Biotech'], re:/hims ?& ?hers|\bHIMS\b/i },
-  WW:    { name:'WW International (WeightWatchers)', search:'"WeightWatchers" OR "WW International"', sectors:['FDA/Biotech'], re:/weightwatchers|ww international/i, verify:true, note:'Restructured in 2025 — verify the current listing.' },
-  LFMD:  { name:'LifeMD', search:'"LifeMD"', sectors:['FDA/Biotech'], re:/\blifemd\b|\bLFMD\b/i },
-  // ── Healthcare distribution ──
-  MCK:   { name:'McKesson', search:'"McKesson"', sectors:['Healthcare Distribution'], re:/mckesson|\bMCK\b/i },
-  CAH:   { name:'Cardinal Health', search:'"Cardinal Health"', sectors:['Healthcare Distribution'], re:/cardinal health|\bCAH\b/i },
-  COR:   { name:'Cencora', search:'"Cencora"', sectors:['Healthcare Distribution'], re:/\bcencora\b|\bCOR\b/i },
-  // ── Semiconductors ──
-  NVDA:  { name:'Nvidia', search:'"Nvidia" (AI OR GPU OR data center OR earnings)', sectors:['Semiconductors','AI/Data Center'], re:/\bnvidia\b|\bNVDA\b/i },
-  SNPS:  { name:'Synopsys', search:'"Synopsys"', sectors:['Semiconductors'], re:/synopsys|\bSNPS\b/i },
-  MRVL:  { name:'Marvell Technology', search:'"Marvell Technology"', sectors:['Semiconductors','AI/Data Center'], re:/\bmarvell\b|\bMRVL\b/i },
+  // ── Semiconductors (logic / foundry / equipment) ──
   AMD:   { name:'Advanced Micro Devices', search:'"Advanced Micro Devices" OR "AMD chip"', sectors:['Semiconductors','AI/Data Center'], re:/advanced micro devices|\bAMD\b/i },
-  AMAT:  { name:'Applied Materials', search:'"Applied Materials"', sectors:['Semiconductors'], re:/applied materials|\bAMAT\b/i },
-  AVGO:  { name:'Broadcom', search:'"Broadcom"', sectors:['Semiconductors','AI/Data Center'], re:/broadcom|\bAVGO\b/i },
-  LRCX:  { name:'Lam Research', search:'"Lam Research"', sectors:['Semiconductors'], re:/lam research|\bLRCX\b/i },
-  CDNS:  { name:'Cadence Design Systems', search:'"Cadence Design"', sectors:['Semiconductors'], re:/cadence design|\bCDNS\b/i },
-  // ── AI / data center / software ──
-  VRT:   { name:'Vertiv Holdings', search:'"Vertiv"', sectors:['AI/Data Center'], re:/\bvertiv\b|\bVRT\b/i },
-  ANET:  { name:'Arista Networks', search:'"Arista Networks"', sectors:['AI/Data Center'], re:/arista networks|\bANET\b/i },
-  PLTR:  { name:'Palantir Technologies', search:'"Palantir"', sectors:['AI/Data Center'], re:/palantir|\bPLTR\b/i },
-  // ── Energy / utilities ──
-  CEG:   { name:'Constellation Energy', search:'"Constellation Energy"', sectors:['Energy/Utilities'], re:/constellation energy|\bCEG\b/i },
-  VST:   { name:'Vistra', search:'"Vistra" (energy OR power OR nuclear)', sectors:['Energy/Utilities'], re:/\bvistra\b|\bVST\b/i },
-  GEV:   { name:'GE Vernova', search:'"GE Vernova"', sectors:['Energy/Utilities'], re:/ge vernova|\bGEV\b/i },
-  ETN:   { name:'Eaton', search:'"Eaton" (electrical OR power OR data center)', sectors:['Energy/Utilities'], re:/\beaton\b|\bETN\b/i },
+  INTC:  { name:'Intel', search:'"Intel" (chip OR foundry OR earnings)', sectors:['Semiconductors'], re:/\bintel\b|\bINTC\b/i },
+  QCOM:  { name:'Qualcomm', search:'"Qualcomm"', sectors:['Semiconductors'], re:/qualcomm|\bQCOM\b/i },
+  ARM:   { name:'Arm Holdings', search:'"Arm Holdings" (chip OR license OR earnings)', sectors:['Semiconductors'], re:/arm holdings|\bARM\b/i },
+  MRVL:  { name:'Marvell Technology', search:'"Marvell Technology"', sectors:['Semiconductors','AI/Data Center'], re:/\bmarvell\b|\bMRVL\b/i },
+  ALAB:  { name:'Astera Labs', search:'"Astera Labs" (AI OR connectivity OR data center)', sectors:['Semiconductors','AI/Data Center'], re:/astera labs|\bALAB\b/i },
   TSM:   { name:'Taiwan Semiconductor (TSMC)', search:'"Taiwan Semiconductor" OR TSMC', sectors:['Semiconductors','AI/Data Center'], re:/taiwan semiconductor|\bTSMC\b|\bTSM\b/i },
+  ASML:  { name:'ASML Holding', search:'"ASML" (lithography OR chip OR earnings)', sectors:['Semiconductors'], re:/\bASML\b/i },
+  AMAT:  { name:'Applied Materials', search:'"Applied Materials"', sectors:['Semiconductors'], re:/applied materials|\bAMAT\b/i },
+  LRCX:  { name:'Lam Research', search:'"Lam Research"', sectors:['Semiconductors'], re:/lam research|\bLRCX\b/i },
+  // ── Memory / storage ──
+  MU:    { name:'Micron Technology', search:'"Micron" (memory OR HBM OR DRAM OR earnings)', sectors:['Semiconductors','Storage'], re:/\bmicron\b|\bMU\b/i },
+  STX:   { name:'Seagate Technology', search:'"Seagate" (hard drive OR storage OR earnings)', sectors:['Storage','Semiconductors'], re:/seagate|\bSTX\b/i },
+  WDC:   { name:'Western Digital', search:'"Western Digital" (storage OR flash OR earnings)', sectors:['Storage','Semiconductors'], re:/western digital|\bWDC\b/i },
+  SNDK:  { name:'Sandisk', search:'"Sandisk" (flash OR NAND OR storage)', sectors:['Storage','Semiconductors'], re:/sandisk|\bSNDK\b/i },
+  // ── AI / data center / cloud ──
+  NBIS:  { name:'Nebius Group', search:'"Nebius" (AI OR GPU OR cloud OR data center)', sectors:['AI/Data Center'], re:/\bnebius\b|\bNBIS\b/i },
+  CRWV:  { name:'CoreWeave', search:'"CoreWeave" (AI OR GPU OR cloud OR data center)', sectors:['AI/Data Center'], re:/coreweave|\bCRWV\b/i },
+  IREN:  { name:'IREN', search:'"IREN" OR "Iris Energy" (data center OR AI OR bitcoin)', sectors:['AI/Data Center'], re:/\bIREN\b|iris energy/i },
+  VRT:   { name:'Vertiv Holdings', search:'"Vertiv" (data center OR power OR cooling)', sectors:['AI/Data Center'], re:/\bvertiv\b|\bVRT\b/i },
+  ORCL:  { name:'Oracle', search:'"Oracle" (cloud OR OCI OR AI OR earnings)', sectors:['Software','AI/Data Center'], re:/\boracle\b|\bORCL\b/i },
+  AMZN:  { name:'Amazon', search:'"Amazon" (AWS OR cloud OR AI OR earnings)', sectors:['AI/Data Center','Software'], re:/\bamazon\b|\bAMZN\b|\bAWS\b/i },
+  CRM:   { name:'Salesforce', search:'"Salesforce" (AI OR Agentforce OR cloud OR earnings)', sectors:['Software','AI/Data Center'], re:/salesforce|\bCRM\b/i },
+  SKM:   { name:'SK Telecom', search:'"SK Telecom" (AI OR 5G OR earnings)', sectors:['Telecom','AI/Data Center'], re:/sk telecom|\bSKM\b/i },
+  // ── Networking / optical ──
+  AAOI:  { name:'Applied Optoelectronics', search:'"Applied Optoelectronics" (optical OR transceiver OR data center)', sectors:['Networking/Optical','AI/Data Center'], re:/applied optoelectronics|\bAAOI\b/i },
+  POET:  { name:'POET Technologies', search:'"POET Technologies" (photonics OR optical)', sectors:['Networking/Optical','Semiconductors'], re:/poet technologies|\bPOET\b/i },
+  // ── Software ──
+  ZM:    { name:'Zoom Communications', search:'"Zoom Communications" OR "Zoom Video"', sectors:['Software'], re:/zoom (video|communications)|\bZM\b/i },
+  // ── Fintech ──
+  SOFI:  { name:'SoFi Technologies', search:'"SoFi" (bank OR fintech OR earnings)', sectors:['Fintech'], re:/\bsofi\b|\bSOFI\b/i },
+  // ── Space / defense ──
+  ASTS:  { name:'AST SpaceMobile', search:'"AST SpaceMobile" (satellite OR spectrum OR launch)', sectors:['Space'], re:/ast spacemobile|\bASTS\b/i },
+  RKLB:  { name:'Rocket Lab', search:'"Rocket Lab" (launch OR Neutron OR space)', sectors:['Space'], re:/rocket lab|\bRKLB\b/i },
+  BWXT:  { name:'BWX Technologies', search:'"BWX Technologies" (nuclear OR defense OR reactor)', sectors:['Space','Nuclear/Defense'], re:/bwx technologies|\bBWXT\b/i },
+  SPCX:  { name:'SPCX', search:'SPCX (SpaceX OR space ETF)', sectors:['Space'], re:/\bSPCX\b/i, verify:true, note:'Confirm the exact instrument (space-exposure fund) in IBKR.' },
+  // ── Quantum / sensors ──
+  IONQ:  { name:'IonQ', search:'"IonQ" (quantum OR computing)', sectors:['Quantum'], re:/\bionq\b/i },
+  RGTI:  { name:'Rigetti Computing', search:'"Rigetti" (quantum OR computing)', sectors:['Quantum'], re:/rigetti|\bRGTI\b/i },
+  OUST:  { name:'Ouster', search:'"Ouster" (lidar OR sensor)', sectors:['Sensors'], re:/\bouster\b|\bOUST\b/i },
 };
-const PSECTOR_LIST = ['FDA/Biotech','Healthcare Distribution','Semiconductors','AI/Data Center','Energy/Utilities'];
-// cross-impact: news on one holding may also affect these related holdings
-const CROSS = {
-  // GLP-1 / obesity complex
-  LLY:['NVO','VKTX','GPCR','ALT','TERN','HIMS'], NVO:['LLY','VKTX','GPCR','ALT','TERN','HIMS'],
-  VKTX:['LLY','NVO','GPCR','ALT','TERN'], GPCR:['LLY','NVO','VKTX','ALT','TERN'], ALT:['LLY','NVO','VKTX','GPCR','TERN'], TERN:['LLY','NVO','VKTX','GPCR'],
-  HIMS:['LLY','NVO','LFMD','WW'], WW:['HIMS','NVO','LLY'], LFMD:['HIMS'],
-  ZLDPF:['NVO','LLY'], AZN:['MRK','PFE','AMGN'], RHHBY:['AZN','MRK','PFE'], AMGN:['LLY','NVO','MRK'], PFE:['MRK','AMGN','AZN'], MRK:['PFE','AMGN','AZN'],
-  // healthcare distribution
-  MCK:['CAH','COR'], CAH:['MCK','COR'], COR:['MCK','CAH'],
-  // semis
-  NVDA:['AMD','AVGO','MRVL','TSM','AMAT','LRCX','SNPS','CDNS','VRT','ANET'], AMD:['NVDA','AVGO','MRVL','TSM','AMAT','LRCX'],
-  AVGO:['NVDA','AMD','MRVL','TSM'], MRVL:['NVDA','AVGO','AMD','TSM'], TSM:['NVDA','AMD','AVGO','AMAT','LRCX','MRVL'],
-  AMAT:['LRCX','TSM','NVDA','AMD'], LRCX:['AMAT','TSM','NVDA'], SNPS:['CDNS','NVDA'], CDNS:['SNPS','NVDA'],
-  // AI infra / data center power
-  VRT:['ANET','ETN','NVDA','CEG','VST','GEV'], ANET:['NVDA','VRT','AVGO'], PLTR:['NVDA'],
-  CEG:['VST','GEV','ETN','VRT'], VST:['CEG','GEV','ETN'], GEV:['CEG','VST','ETN'], ETN:['VRT','GEV','CEG'],
-};
+const PSECTOR_LIST = ['Semiconductors','AI/Data Center','Storage','Networking/Optical','Software','Space','Quantum','Fintech'];
+// cross-impact: news on one holding may also affect these related holdings.
+// Built from peer groups (each member cross-links to the others).
+const CROSS = {};
+[
+  ['MU','STX','WDC','SNDK'],                                  // memory / storage
+  ['TSM','ASML','AMAT','LRCX'],                               // foundry / equipment
+  ['AMD','INTC','QCOM','ARM','MRVL','ALAB'],                  // logic / compute
+  ['VRT','CRWV','NBIS','ORCL','AMZN','IREN','ALAB','SKM'],    // AI / data center
+  ['ASTS','RKLB','SPCX','BWXT'],                              // space / defense
+  ['IONQ','RGTI','POET'],                                     // quantum / photonics
+  ['AAOI','POET','MRVL'],                                     // optical / networking
+  ['ZM','CRM','ORCL','AMZN'],                                 // software
+].forEach(g => g.forEach(t => { CROSS[t] = Array.from(new Set([...(CROSS[t]||[]), ...g.filter(x=>x!==t)])); }));
 // Categories (priority order)
 const P_CATS = [
   [/export (control|restriction|ban)|chip ban|entity list/i,'Export controls'],
@@ -686,6 +659,9 @@ function pImpactColor(d){ return {positive:'var(--low)',negative:'var(--critical
     State.portfolio = DEFAULT_PORTFOLIO.slice();
     localStorage.setItem('tt_portfolio', JSON.stringify(State.portfolio));
     localStorage.setItem('tt_portfolio_v', String(PORTFOLIO_VERSION));
+    // Clear the legacy OIL/SPY/DXY watchlist so only the IBKR holdings drive news.
+    State.watchlist = [];
+    localStorage.setItem('tt_watchlist', '[]');
   } else {
     State.portfolio = saved;
   }
@@ -876,11 +852,14 @@ function renderStockDetail(t){
 // ============================================================================
 // Smart keywords per sector (#5) — appended to ticker queries for relevance.
 const SECTOR_KEYWORDS = {
-  'FDA/Biotech': 'FDA OR "clinical trial" OR approval OR "phase 3" OR obesity OR earnings',
-  'Healthcare Distribution': 'earnings OR guidance OR distribution OR pharmacy',
-  'Semiconductors': '"AI chips" OR semiconductor OR "data center" OR "export controls" OR earnings',
-  'AI/Data Center': '"data center" OR AI OR capex OR cloud OR earnings',
-  'Energy/Utilities': '"nuclear power" OR "energy demand" OR "data center power" OR grid OR earnings',
+  'Semiconductors': 'chip OR semiconductor OR "AI chips" OR foundry OR "export controls" OR earnings',
+  'AI/Data Center': '"data center" OR AI OR GPU OR cloud OR capex OR earnings',
+  'Storage': 'memory OR DRAM OR NAND OR HBM OR "hard drive" OR SSD OR earnings',
+  'Networking/Optical': 'optical OR transceiver OR networking OR photonics OR earnings',
+  'Software': 'software OR cloud OR SaaS OR AI OR earnings',
+  'Space': 'space OR satellite OR launch OR rocket OR earnings',
+  'Quantum': '"quantum computing" OR qubit OR earnings',
+  'Fintech': 'fintech OR bank OR lending OR earnings',
 };
 // Source catalog (#3) — type: rss(Google News) | official(gov RSS) | external_search(link only)
 const NEWS_SOURCES = [
@@ -907,22 +886,17 @@ const NEWS_SOURCES = [
 ];
 // Category market/macro feeds (not ticker-specific)
 const NEWS_CATEGORY_FEEDS = [
-  { cat:'Market', q:'stock market S&P 500 Nasdaq Dow when:2d' },
-  { cat:'Economy', q:'US economy CPI inflation jobs report GDP when:3d' },
-  { cat:'Economy', q:'Federal Reserve interest rates Powell rate decision when:3d' },
-  { cat:'Earnings', q:'earnings beat miss guidance results when:2d' },
-  { cat:'Commodities', q:'gold price OR oil price OR natural gas WTI Brent when:2d' },
-  { cat:'Crypto', q:'bitcoin OR crypto OR ethereum price when:2d' },
-  { cat:'Trump/Tariffs', q:'Trump tariffs trade war China export when:2d' },
-  { cat:'FDA/Biotech', q:'FDA approval OR drug OR biotech OR "clinical trial" when:3d' },
+  { cat:'Market', q:'stock market Nasdaq tech stocks semiconductors when:2d' },
+  { cat:'Earnings', q:'tech earnings beat miss guidance results when:2d' },
   { cat:'Semiconductors', q:'semiconductor OR chip OR "AI chips" OR "export controls" when:2d' },
-  { cat:'AI/Data Center', q:'AI OR "data center" OR Nvidia OR capex when:2d' },
-  { cat:'Energy/Utilities', q:'"nuclear power" OR "energy demand" OR utilities OR "power grid" when:3d' },
+  { cat:'AI/Data Center', q:'AI OR "data center" OR GPU OR cloud capex when:2d' },
+  { cat:'Storage', q:'memory chips OR DRAM OR NAND OR HBM OR "hard drive" when:3d' },
+  { cat:'Space', q:'space stocks OR satellite OR rocket launch when:3d' },
+  { cat:'Quantum', q:'"quantum computing" OR qubit stocks when:4d' },
+  { cat:'Trump/Tariffs', q:'Trump tariffs chips China export controls when:2d' },
 ];
 const OFFICIAL_FEEDS = [
-  { cat:'Official Filings', source:'Federal Reserve', url:'https://www.federalreserve.gov/feeds/press_all.xml' },
-  { cat:'Official Filings', source:'BLS', url:'https://www.bls.gov/feed/news_release/bls.rss' },
-  { cat:'Official Filings', source:'Treasury', url:'https://home.treasury.gov/rss/press.xml' },
+  { cat:'Economy', source:'Federal Reserve', url:gn('Federal Reserve interest rate decision Powell when:5d') },
 ];
 // External (non-fetchable) source links (#12) — per ticker
 const EXTERNAL_SOURCES = [
@@ -961,8 +935,8 @@ function stripPub(title){ const m=String(title).match(/\s[-–—]\s([A-Za-z0-9 
 function whyMatters(cat, ticker, sent){
   const dir = sent==='bullish'?'possible positive':sent==='bearish'?'possible negative':'mixed / uncertain';
   if(ticker){ const c=COMPANY[ticker]; return 'Direct news on '+(c?c.name:ticker)+' ('+((c&&c.sectors)||['']).join(', ')+') — '+dir+' read.'; }
-  const map={ Market:'Broad-market backdrop affecting all holdings.', Economy:'Macro data (rates, inflation, jobs) drives valuations across the watchlist.', Earnings:'Earnings season can move comparable names in your sectors.', Commodities:'Commodity moves affect energy holdings and input costs.', Crypto:'Crypto sentiment can spill into risk assets.', 'Trump/Tariffs':'Tariff / trade policy hits semis, pharma supply chains and China-exposed names.', 'FDA/Biotech':'Regulatory / clinical news moves your biotech holdings.', Semiconductors:'Chip-sector news affects NVDA, AMD, AVGO, TSM, AMAT, LRCX.', 'AI/Data Center':'AI / data-center demand drives chips, networking and power holdings.', 'Energy/Utilities':'Power-demand & nuclear news affects CEG, VST, GEV, ETN.', 'Official Filings':'Official government / regulator release.' };
-  return map[cat]||'Market-related news that may affect your watchlist.';
+  const map={ Market:'Broad-market backdrop affecting all holdings.', Economy:'Macro data (rates, inflation, jobs) drives tech valuations.', Earnings:'Earnings season can move comparable names in your sectors.', 'Trump/Tariffs':'Tariff / export-control policy hits semis and China-exposed chip names.', Semiconductors:'Chip-sector news affects AMD, INTC, QCOM, ARM, TSM, ASML, AMAT, LRCX, MRVL.', 'AI/Data Center':'AI / data-center demand drives your GPU, networking, cloud and power names.', Storage:'Memory & storage pricing moves MU, STX, WDC, SNDK.', Space:'Launch / satellite news affects ASTS, RKLB, BWXT.', Quantum:'Quantum-computing news moves IONQ, RGTI, POET.', Software:'Cloud / software demand affects ORCL, CRM, AMZN, ZM.', Fintech:'Rates & lending news affect SOFI.', 'Networking/Optical':'Optical / connectivity demand affects AAOI, POET, MRVL.', 'Official Filings':'Official government / regulator release.' };
+  return map[cat]||'Market-related news that may affect your holdings.';
 }
 function normalizeNews(raw, category, ticker, sourceName){
   const title = stripPub(raw.title);
@@ -987,26 +961,43 @@ const SOURCE_RANK = [
   [/yahoo/i, 5], [/seeking ?alpha/i, 6], [/benzinga/i, 7], [/motley fool|fool\.com|the fool/i, 8],
 ];
 function sourceRank(name){ const s=String(name||''); for(const [re,r] of SOURCE_RANK){ if(re.test(s)) return r; } return 9; }
-// Group key for "same story": publisher-stripped, normalized, first significant words.
-function newsKey(n){
-  const t = stripPub(n.title||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').replace(/\b(the|a|an|to|of|for|in|on|as|at|and|is|says|after|amid|over|with)\b/g,' ').replace(/\s+/g,' ').trim();
-  return t.split(' ').slice(0,7).join(' ');
+// Significant (non-stopword) tokens of a headline, used for similarity dedup.
+const STOPWORDS = new Set('the a an to of for in on as at and or is are was were be been has have had its it he she they his her says said after amid over with from this that will new what why how when who but not into amid up down off out about more most than then over under again stock stocks shares share inc corp co ltd plc'.split(' '));
+function sigTokens(title){
+  return stripPub(title||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').split(/\s+/).filter(w=>w.length>=4 && !STOPWORDS.has(w));
 }
-// Dedup that keeps the MOST reputable source per story and merges ticker tags so
-// no related stock association is lost. Order-independent (callers sort after).
+// Dedup that also catches REWORDED near-duplicates (different outlets, same story):
+// bucket by the most distinctive token, then merge entries whose significant-token
+// sets overlap >= 60% (Jaccard). Keeps the most reputable source; merges ticker tags.
 function dedupNews(items){
-  const best = new Map();
+  const buckets = new Map();   // anchor token -> [kept items]
+  const out = [];
   for(const n of items){
-    const k = newsKey(n); if(!k) continue;
-    const ex = best.get(k);
-    if(!ex){ best.set(k, n); continue; }
-    const keepNew = sourceRank(n.source) < sourceRank(ex.source)
-      || (sourceRank(n.source)===sourceRank(ex.source) && (n.pubDate>ex.pubDate));
-    const merged = Array.from(new Set([...(ex.tickers||[]), ...(n.tickers||[]), ...(ex.ticker?[ex.ticker]:[]), ...(n.ticker?[n.ticker]:[])]));
-    if(keepNew){ n.tickers = merged; best.set(k, n); }
-    else { ex.tickers = merged; }
+    const toks = sigTokens(n.title);
+    const set = new Set(toks);
+    const anchor = toks.slice().sort((a,b)=>b.length-a.length)[0] || (n.title||'').toLowerCase().slice(0,14);
+    const arr = buckets.get(anchor) || [];
+    let dup = null;
+    for(const ex of arr){
+      let inter = 0; for(const w of set) if(ex._set.has(w)) inter++;
+      const uni = set.size + ex._set.size - inter;
+      if(uni > 0 && inter/uni >= 0.6){ dup = ex; break; }
+    }
+    const tks = (a,b)=>Array.from(new Set([...(a.tickers||[]),...(b.tickers||[]),...(a.ticker?[a.ticker]:[]),...(b.ticker?[b.ticker]:[])]));
+    if(dup){
+      const keepNew = sourceRank(n.source) < sourceRank(dup.source)
+        || (sourceRank(n.source)===sourceRank(dup.source) && n.pubDate>dup.pubDate);
+      if(keepNew){
+        n._set = set; n.tickers = tks(dup, n);
+        const oi = out.indexOf(dup); if(oi>=0) out[oi] = n;
+        const bi = arr.indexOf(dup); if(bi>=0) arr[bi] = n;
+      } else { dup.tickers = tks(dup, n); }
+      continue;
+    }
+    n._set = set; out.push(n); arr.push(n); buckets.set(anchor, arr);
   }
-  return Array.from(best.values());
+  out.forEach(n => { delete n._set; });
+  return out;
 }
 
 // ── State ──
@@ -1114,10 +1105,10 @@ function combinedNews(){
 }
 
 // ── Hub UI (#6,#7,#8) ──
-const NEWS_CATS = ['All','My Stocks','Market','Economy','Earnings','FDA/Biotech','Semiconductors','AI/Data Center','Energy/Utilities','Trump/Tariffs','Commodities','Crypto','Official Filings'];
+const NEWS_CATS = ['All','My Stocks','Semiconductors','AI/Data Center','Storage','Space','Quantum','Software','Earnings','Market','Trump/Tariffs'];
 const NEWS_SOURCE_FILTERS = ['Yahoo Finance','CNBC','Reuters','Bloomberg','Investing.com','TradingView','MarketWatch','Seeking Alpha','SEC','Fed','BLS'];
 const SOURCE_MATCH = { 'Yahoo Finance':/yahoo/i,'CNBC':/cnbc/i,'Reuters':/reuters/i,'Bloomberg':/bloomberg/i,'Investing.com':/investing/i,'TradingView':/tradingview/i,'MarketWatch':/market\s?watch/i,'Seeking Alpha':/seeking ?alpha/i,'SEC':/\bSEC\b|edgar/i,'Fed':/fed|federal reserve/i,'BLS':/\bBLS\b|bureau of labor/i };
-const SECTOR_CATS = ['FDA/Biotech','Semiconductors','AI/Data Center','Energy/Utilities'];
+const SECTOR_CATS = ['Semiconductors','AI/Data Center','Storage','Networking/Optical','Software','Space','Quantum','Fintech','Sensors'];
 function newsFiltered(){
   let list = combinedNews();
   const c = State.newsCat;
@@ -1469,7 +1460,7 @@ function renderSources() {
   const connected = h.filter(s => s.status==='connected').length;
   const failed = h.filter(s => s.status==='failed').length;
 
-  const GROUP_ORDER = ['Official','Market','General','Geopolitical','Truth Social via News'];
+  const GROUP_ORDER = ['Markets','Tech','Policy'];
   const rowHtml = (s, gi) => {
     const idx = State.feedHealth.indexOf(s);
     const retry = (s.status !== 'connected' && s.status !== 'pending')
@@ -1497,10 +1488,8 @@ function renderSources() {
     '<div class="page-title">Sources</div>' +
     '<div class="page-subtitle">' + (h.length ? (connected+' connected · '+failed+' failed · '+h.length+' total') : 'Live feed health') +
       ' · last checked ' + (State.lastUpdated?cairoClock(State.lastUpdated)+' Cairo':'—') + '</div>' +
-    '<div class="src-row" style="border-color:rgba(61,139,253,.3);background:rgba(61,139,253,.06)"><div class="src-meta" style="color:var(--text2)">ℹ️ This is a <b>backend-less web preview</b>. Browsers can\'t fetch RSS cross-origin, so feeds are pulled through free public CORS proxies that rate-limit — a source marked FAILED here (HTTP 422/503) is the <b>proxy</b> failing, not the source. The real backend fetches every one of these server-side at HTTP 200. Tap <b>↻ Retry</b> on any failed source.</div></div>' +
-    '<div class="section-head">Truth Social (Direct)</div>' +
-    '<div class="src-row" style="border-color:rgba(229,57,53,.3)"><div class="src-top"><div class="src-name">Truth Social — @realDonaldTrump</div><div class="src-status src-failed">Unavailable</div></div><div class="src-meta">No public real-time API. Cloudflare blocks browser/Node fetch. Works only in the backend via a system-curl workaround — not reachable from this web preview.</div></div>' +
-    (h.length ? groupsHtml : '<div class="status-msg">Loading sources…</div>') +
+    '<div class="src-row" style="border-color:rgba(61,139,253,.3);background:rgba(61,139,253,.06)"><div class="src-meta" style="color:var(--text2)">ℹ️ Feeds are fetched live in your browser via Google News RSS. The catalog is kept small so all sources stay connected; any that briefly fails is auto-retried and the last good results are kept, so news keeps flowing.</div></div>' +
+    (h.length ? groupsHtml : '<div class="status-msg">Connecting sources…</div>') +
   '</div>';
 }
 
