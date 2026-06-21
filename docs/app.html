@@ -385,24 +385,51 @@ const GN = 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q=';
 function gn(q){ return GN + encodeURIComponent(q); }
 function gsite(site){ return gn('Trump site:' + site + ' when:3d'); }
 
-// Full source catalog (grouped). Every source here is polled and shown on the
-// Sources screen with live status.
-// Lean, tech/portfolio-focused catalog. Every source is a Google News RSS query
-// (reliable cross-origin) and the small count keeps us well under the free proxies'
-// rate limits, so they actually all connect. Each is polled and shown on Sources.
+// Full source catalog (grouped). Every source is a Google News RSS query (reliable
+// cross-origin) and is polled + shown on the Sources screen with live status. Broad
+// Trump / news variety; any source that briefly rate-limits is auto-retried by the
+// sweep and its last-good items are cached, so coverage stays high.
 const SOURCES = [
-  // ── Markets ──
-  { name: 'Reuters — Markets',    url: gn('stock market OR tech OR chips OR earnings site:reuters.com when:2d'), group: 'Markets', kind: 'news' },
-  { name: 'CNBC — Markets',       url: gn('stock market OR tech OR chips site:cnbc.com when:2d'),                group: 'Markets', kind: 'news' },
-  { name: 'Bloomberg — Markets',  url: gn('stocks OR tech OR semiconductors site:bloomberg.com when:2d'),       group: 'Markets', kind: 'news' },
-  { name: 'MarketWatch',          url: gn('markets OR stocks site:marketwatch.com when:2d'),                    group: 'Markets', kind: 'news' },
-  { name: 'Yahoo Finance',        url: gn('stock market OR tech stocks site:finance.yahoo.com when:2d'),        group: 'Markets', kind: 'news' },
-  // ── Tech / portfolio themes ──
-  { name: 'Semiconductors & AI',  url: gn('semiconductor OR "AI chips" OR "data center" OR GPU when:2d'),       group: 'Tech', kind: 'news' },
-  { name: 'Tech Earnings',        url: gn('tech earnings OR guidance OR analyst upgrade OR downgrade when:2d'),  group: 'Tech', kind: 'news' },
-  { name: 'Space & Quantum',      url: gn('space stocks OR satellite OR "quantum computing" OR rocket launch when:3d'), group: 'Tech', kind: 'news' },
-  // ── Policy (tariffs / chips) ──
-  { name: 'Trump / Tariffs',      url: gn('Trump tariffs chips China export controls when:2d'),                 group: 'Policy', kind: 'news' },
+  // ── Official US government ──
+  { name: 'White House — News',         url: gn('"White House" announcement OR statement OR briefing when:2d'), group: 'Official', kind: 'official' },
+  { name: 'White House — Actions',      url: gn('executive order OR presidential action OR proclamation when:5d'), group: 'Official', kind: 'official' },
+  { name: 'Federal Register — Presidential', url: gn('Federal Register presidential document OR executive order when:7d'), group: 'Official', kind: 'official' },
+  // ── Market & financial ──
+  { name: 'CNBC — Markets',             url: gn('stock market OR tech OR chips site:cnbc.com when:2d'),     group: 'Market', kind: 'news' },
+  { name: 'MarketWatch',                url: gn('markets OR stocks site:marketwatch.com when:2d'),          group: 'Market', kind: 'news' },
+  { name: 'Yahoo Finance',              url: gn('stock market OR tech stocks site:finance.yahoo.com when:2d'), group: 'Market', kind: 'news' },
+  { name: 'Reuters · Trump',            url: gsite('reuters.com'),     group: 'Market', kind: 'news' },
+  { name: 'CNBC · Trump',               url: gsite('cnbc.com'),        group: 'Market', kind: 'news' },
+  { name: 'Bloomberg · Trump',          url: gsite('bloomberg.com'),   group: 'Market', kind: 'news' },
+  // ── General reliable news ──
+  { name: 'Google News · Trump',        url: gn('Trump when:1d'),      group: 'General', kind: 'news' },
+  { name: 'AP · Trump',                 url: gsite('apnews.com'),      group: 'General', kind: 'news' },
+  { name: 'BBC · Trump',                url: gsite('bbc.com'),         group: 'General', kind: 'news' },
+  { name: 'CNN · Trump',                url: gsite('cnn.com'),         group: 'General', kind: 'news' },
+  { name: 'Fox News · Trump',           url: gsite('foxnews.com'),     group: 'General', kind: 'news' },
+  { name: 'The Guardian · Trump',       url: gsite('theguardian.com'), group: 'General', kind: 'news' },
+  { name: 'Politico · Trump',           url: gsite('politico.com'),    group: 'General', kind: 'news' },
+  { name: 'Axios · Trump',              url: gsite('axios.com'),       group: 'General', kind: 'news' },
+  { name: 'The Hill · Trump',           url: gsite('thehill.com'),     group: 'General', kind: 'news' },
+  { name: 'NPR · Trump',                url: gsite('npr.org'),         group: 'General', kind: 'news' },
+  { name: 'CBS News · Trump',           url: gsite('cbsnews.com'),     group: 'General', kind: 'news' },
+  { name: 'NBC News · Trump',           url: gsite('nbcnews.com'),     group: 'General', kind: 'news' },
+  { name: 'New York Times · Trump',     url: gsite('nytimes.com'),     group: 'General', kind: 'news' },
+  { name: 'Washington Post · Trump',    url: gsite('washingtonpost.com'), group: 'General', kind: 'news' },
+  // ── International / geopolitical ──
+  { name: 'Al Jazeera · Trump',         url: gsite('aljazeera.com'),   group: 'Geopolitical', kind: 'news' },
+  { name: 'France24 · Trump',           url: gsite('france24.com'),    group: 'Geopolitical', kind: 'news' },
+  { name: 'Wars & Conflicts',           url: gn('war OR conflict OR ceasefire OR strike when:1d'), group: 'Geopolitical', kind: 'news' },
+  { name: 'Middle East',                url: gn('Gaza OR Israel OR Iran when:1d'),  group: 'Geopolitical', kind: 'news' },
+  { name: 'Ukraine / Russia',           url: gn('Ukraine Russia when:1d'),          group: 'Geopolitical', kind: 'news' },
+  // ── Truth Social via News ──
+  { name: 'Truth Social via News',      url: gn('Trump "Truth Social" when:3d'), group: 'Truth Social via News', kind: 'news' },
+  { name: 'Truth Social — Markets',     url: gn('Trump "Truth Social" (tariff OR chips OR stocks OR Fed OR sanctions) when:3d'), group: 'Truth Social via News', kind: 'news' },
+  // ── Tech themes (also feed your stock categories) ──
+  { name: 'Semiconductors & AI',        url: gn('semiconductor OR "AI chips" OR "data center" OR GPU when:2d'), group: 'Tech', kind: 'news' },
+  { name: 'Tech Earnings',              url: gn('tech earnings OR guidance OR analyst upgrade OR downgrade when:2d'), group: 'Tech', kind: 'news' },
+  { name: 'Space & Quantum',            url: gn('space stocks OR satellite OR "quantum computing" OR rocket launch when:3d'), group: 'Tech', kind: 'news' },
+  { name: 'Trump / Tariffs · Chips',    url: gn('Trump tariffs chips China export controls when:2d'), group: 'Tech', kind: 'news' },
 ];
 
 // CORS proxies, tried in order. allorigins is most reliable; rss2json last
@@ -1470,7 +1497,7 @@ function renderSources() {
   const connected = h.filter(s => s.status==='connected').length;
   const failed = h.filter(s => s.status==='failed').length;
 
-  const GROUP_ORDER = ['Markets','Tech','Policy'];
+  const GROUP_ORDER = ['Official','Market','General','Geopolitical','Truth Social via News','Tech'];
   const rowHtml = (s, gi) => {
     const idx = State.feedHealth.indexOf(s);
     const retry = (s.status !== 'connected' && s.status !== 'pending')
@@ -1498,7 +1525,7 @@ function renderSources() {
     '<div class="page-title">Sources</div>' +
     '<div class="page-subtitle">' + (h.length ? (connected+' connected · '+failed+' failed · '+h.length+' total') : 'Live feed health') +
       ' · last checked ' + (State.lastUpdated?cairoClock(State.lastUpdated)+' Cairo':'—') + '</div>' +
-    '<div class="src-row" style="border-color:rgba(61,139,253,.3);background:rgba(61,139,253,.06)"><div class="src-meta" style="color:var(--text2)">ℹ️ Feeds are fetched live in your browser via Google News RSS. The catalog is kept small so all sources stay connected; any that briefly fails is auto-retried and the last good results are kept, so news keeps flowing.</div></div>' +
+    '<div class="src-row" style="border-color:rgba(61,139,253,.3);background:rgba(61,139,253,.06)"><div class="src-meta" style="color:var(--text2)">ℹ️ A wide set of sources is fetched live in your browser via Google News RSS. With many free-proxy requests a few may briefly read FAILED — they are auto-retried on a sweep and the last good items are cached, so news keeps flowing. Tap <b>↻ Retry</b> on any source.</div></div>' +
     (h.length ? groupsHtml : '<div class="status-msg">Connecting sources…</div>') +
   '</div>';
 }
