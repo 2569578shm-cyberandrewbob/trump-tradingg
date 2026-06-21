@@ -432,16 +432,16 @@ const SOURCES = [
   { name: 'Trump / Tariffs · Chips',    url: gn('Trump tariffs chips China export controls when:2d'), group: 'Tech', kind: 'news' },
 ];
 
-// CORS proxies, tried in order. allorigins is most reliable; rss2json last
-// because its free tier rate-limits (the 503s you saw on Google News / AP).
+// CORS proxies, tried in order — only proven-reliable ones (the previously-added
+// thingproxy / cors.lol hung until the abort timeout, which is what produced the
+// "Timed out via CORS proxy" errors). allorigins is most reliable; rss2json last
+// because its free tier rate-limits.
 const PROXIES = [
   { name: 'allorigins-raw', kind: 'xml',     build: u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u) },
   { name: 'codetabs',       kind: 'xml',     build: u => 'https://api.codetabs.com/v1/proxy/?quest=' + encodeURIComponent(u) },
-  { name: 'corsproxy',      kind: 'xml',     build: u => 'https://corsproxy.io/?url=' + encodeURIComponent(u) },
   { name: 'allorigins-get', kind: 'wrapped', build: u => 'https://api.allorigins.win/get?url=' + encodeURIComponent(u) },
+  { name: 'corsproxy',      kind: 'xml',     build: u => 'https://corsproxy.io/?url=' + encodeURIComponent(u) },
   { name: 'rss2json',       kind: 'json',    build: u => 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(u) + '&count=25' },
-  { name: 'thingproxy',     kind: 'xml',     build: u => 'https://thingproxy.freeboard.io/fetch/' + u },
-  { name: 'corsing',        kind: 'xml',     build: u => 'https://api.cors.lol/?url=' + encodeURIComponent(u) },
 ];
 
 function parseXmlItems(text) {
@@ -470,7 +470,7 @@ async function throttleRequest(minGap){
 }
 async function fetchVia(proxy, url) {
   await throttleRequest(80);
-  const r = await fetch(proxy.build(url), { signal: AbortSignal.timeout(6000) });
+  const r = await fetch(proxy.build(url), { signal: AbortSignal.timeout(5000) });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   if (proxy.kind === 'json') {
     const d = await r.json();
@@ -513,10 +513,10 @@ const FEED_CACHE_TTL = 6 * 3600e3;        // fall back to cached items up to 6h
 async function fetchFeed(feed, attempt) {
   const fresh = FEED_CACHE.get(feed.url);
   if (fresh && Date.now()-fresh.ts < FEED_FRESH_MS) return { feed, items: fresh.items, status:'connected', cached:true };
-  // Fail FAST on the initial pass (~6s) so loadFeeds completes quickly and the
-  // background sweep — the relentless part — actually gets to run before the next
-  // auto-refresh. The 6h last-good cache keeps connected sources sticky meanwhile.
-  const deadline = Date.now() + 6000;
+  // Per-feed budget must exceed the per-proxy timeout (5s) so a slow/rate-limited
+  // first proxy doesn't doom the feed — it cycles to the next proxy. ~13s allows
+  // ~2-3 proxy attempts; the background sweep retries anything still failing.
+  const deadline = Date.now() + 13000;
   let lastErr = '';
   for (const p of proxyOrder()) {
     if (Date.now() > deadline) break;
