@@ -231,6 +231,18 @@
   .ticker.owned { background: var(--accent); border-color: var(--accent); color: #fff; }
   .tk-dir { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
   .tk-arrow { font-size: 12px; font-weight: 900; line-height: 1; }
+
+  /* Per-stock news-sentiment prediction bar */
+  .pred { margin-top: 8px; }
+  .pred-row { display: flex; align-items: center; gap: 7px; font-size: 12px; margin-bottom: 5px; }
+  .pred-arrow { font-size: 15px; font-weight: 900; line-height: 1; }
+  .pred-score { font-weight: 800; }
+  .pred-cnt { color: var(--text2); font-size: 10px; margin-left: auto; }
+  .pred-bar { height: 8px; border-radius: 5px; overflow: hidden; background: rgba(229,57,53,.30); }
+  .pred-up { height: 100%; background: var(--low); transition: width .4s ease; }
+  .pred.big .pred-bar { height: 13px; }
+  .pred.big .pred-row { font-size: 14px; }
+  .pred.big .pred-arrow { font-size: 20px; }
   .news-state { text-align: center; padding: 34px 18px; color: var(--text2); }
   .news-state .ns-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
   .news-state .ns-sub { font-size: 12px; margin-bottom: 16px; line-height: 1.5; }
@@ -810,9 +822,10 @@ function renderPortfolio(){
 }
 function pCard(n){
   const risk = n.urgency>=80?'Critical':n.urgency>=65?'High':n.urgency>=45?'Medium':'Low';
+  const sent = sentFromImpact(n.impact);
   return '<div class="card" onclick="go(\'stock/'+n.ticker+'\')"><div class="card-accent" style="background:'+riskColor(risk)+'"></div><div class="card-body">'+
     '<div class="card-top"><div class="card-title">'+esc(n.title)+'</div><span class="risk-pill risk-'+risk+'">'+risk+'</span></div>'+
-    '<div class="card-source"><span class="source-dot"></span>'+n.tickers.map(t=>'<span class="ticker '+(State.portfolio.includes(t)?'watched':'')+'">'+t+'</span>').join(' ')+' · '+esc(n.source)+' · '+esc(n.category)+'</div>'+
+    '<div class="card-source"><span class="source-dot"></span>'+n.tickers.map(t=>'<span class="tk-dir">'+dirArrow(sent)+'<span class="ticker '+(State.portfolio.includes(t)?'watched':'')+'">'+t+'</span></span>').join(' ')+' · '+esc(n.source)+' · '+esc(n.category)+'</div>'+
     (n.summary?'<div class="card-summary">'+esc(n.summary.slice(0,180))+'</div>':'')+
     '<div class="card-footer"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+
       '<span style="font-size:11px;font-weight:700;color:'+pImpactColor(n.impact)+'">possible '+n.impact+' impact</span>'+
@@ -827,6 +840,7 @@ function pCard(n){
 function renderStocks(){
   if(!State.pLoaded && !State.pLoading) loadPortfolioNews();
   const counts={}; State.pNews.forEach(n=>n.tickers.forEach(t=>counts[t]=(counts[t]||0)+1));
+  const sig = buildSignals();
   const groups={}; State.portfolio.forEach(t=>{ const secs=COMPANY[t]?.sectors||['Other']; const g=secs[0]; (groups[g]=groups[g]||[]).push(t); });
   let body='';
   PSECTOR_LIST.concat(Object.keys(groups).filter(g=>!PSECTOR_LIST.includes(g))).forEach(g=>{
@@ -840,6 +854,7 @@ function renderStocks(){
         '<span style="display:flex;gap:6px;align-items:center"><span class="chip" style="cursor:default">'+c+' news</span><span style="color:var(--text2);cursor:pointer" onclick="event.stopPropagation();removePortfolioTicker(\''+t+'\')">✕</span></span></div>'+
         (co.verify?'<div style="font-size:10px;color:var(--high);margin-top:4px">⚠ Needs verification — '+esc(co.note||'')+'</div>':'')+
         (latest?'<div class="card-summary" style="margin-top:6px">'+esc(latest.title.slice(0,120))+' <span style="color:'+pImpactColor(latest.impact)+'">· '+latest.impact+'</span></div>':'<div class="card-summary" style="margin-top:6px;color:var(--text2)">No fresh news in the last 7 days.</div>')+
+        predictionBar(sig[t])+
       '</div></div>';
     }).join('');
   });
@@ -865,6 +880,9 @@ function renderStockDetail(t){
       '<div class="page-title" style="margin:0">'+t+' · '+esc(co.name)+'</div></div>'+
     '<div class="page-subtitle">'+(co.sectors||[]).map(esc).join(' · ')+(co.verify?' · <span style="color:var(--high)">Needs verification</span>':'')+' · '+news.length+' items · updated '+(State.pLastUpdated?cairoClock(State.pLastUpdated)+' Cairo':'—')+'</div>'+
     (co.verify&&co.note?'<div class="status-msg" style="text-align:left;background:rgba(251,140,0,.08);border:1px solid rgba(251,140,0,.3);border-radius:10px;padding:11px;color:var(--text)">⚠ '+esc(co.note)+'</div>':'')+
+    '<div class="section-head">Prediction · from news sentiment</div>'+
+    '<div class="card"><div class="card-body">'+predictionBar(newsSignalFrom(combinedNews().filter(n=>(n.tickers||[]).includes(t))), true)+
+      '<div style="font-size:10px;color:var(--text2);margin-top:8px">Aggregated bullish vs bearish read of recent '+t+' news (impact-weighted). Informational only — not a price forecast or financial advice.</div></div></div>'+
     '<div class="stat-grid"><div class="stat-card"><div class="stat-val" style="color:var(--low)">'+pos+'</div><div class="stat-lbl">Positive</div></div>'+
       '<div class="stat-card"><div class="stat-val" style="color:var(--critical)">'+neg+'</div><div class="stat-lbl">Negative</div></div>'+
       '<div class="stat-card"><div class="stat-val" style="font-size:14px;color:var(--accent)">'+(news[0]?esc(news[0].category):'—')+'</div><div class="stat-lbl">Latest theme</div></div></div>'+
@@ -1196,6 +1214,41 @@ function dirArrow(sent){
   if(sent==='bearish') return '<span class="tk-arrow" style="color:var(--critical)">▼</span>';
   return '<span class="tk-arrow" style="color:var(--text2)">–</span>';
 }
+// Portfolio-item impact ('positive'/'negative'/...) → tag sentiment.
+function sentFromImpact(imp){ return imp==='positive'?'bullish':imp==='negative'?'bearish':'neutral'; }
+
+// ── Per-stock prediction: aggregate the up/down news signals into a directional
+//    read (news sentiment, NOT a price forecast or advice). Impact weights the vote.
+function newsSignalFrom(items){
+  let up=0, down=0;
+  for(const n of items){ const w = n.impact==='high'?3 : n.impact==='medium'?2 : 1;
+    if(n.sentiment==='bullish') up+=w; else if(n.sentiment==='bearish') down+=w; }
+  const tot=up+down, score = tot ? Math.round((up-down)/tot*100) : 0;
+  return { up, down, count:items.length, score, dir: score>=12?'up' : score<=-12?'down' : 'flat' };
+}
+// Build a signal for every portfolio ticker from one combinedNews() pass.
+function buildSignals(){
+  const all = combinedNews();
+  const byTicker = {}; State.portfolio.forEach(t=> byTicker[t]=[]);
+  for(const n of all){ for(const t of (n.tickers||[])){ if(byTicker[t]) byTicker[t].push(n); } }
+  const sig={}; for(const t of State.portfolio) sig[t]=newsSignalFrom(byTicker[t]);
+  return sig;
+}
+// Render the prediction bar/chart for a stock signal.
+function predictionBar(s, big){
+  const tot = s.up + s.down;
+  const upPct = tot ? Math.round(s.up/tot*100) : 50;
+  const arrow = s.dir==='up'?'▲' : s.dir==='down'?'▼' : '–';
+  const col = s.dir==='up'?'var(--low)' : s.dir==='down'?'var(--critical)' : 'var(--text2)';
+  const label = s.dir==='up'?'Bullish' : s.dir==='down'?'Bearish' : 'Neutral';
+  return '<div class="pred'+(big?' big':'')+'">'+
+    '<div class="pred-row"><span class="pred-arrow" style="color:'+col+'">'+arrow+'</span>'+
+      '<b style="color:'+col+'">'+label+'</b>'+
+      '<span class="pred-score" style="color:'+col+'">'+(s.score>0?'+':'')+s.score+'</span>'+
+      '<span class="pred-cnt">'+(s.count?s.count+' news':'no news')+'</span></div>'+
+    '<div class="pred-bar" title="'+s.up+' bullish vs '+s.down+' bearish (weighted)"><div class="pred-up" style="width:'+upPct+'%"></div></div>'+
+  '</div>';
+}
 function newsCard(n){
   const tagList = (n.tickers && n.tickers.length) ? n.tickers : (n.ticker ? [n.ticker] : []);
   const arrow = dirArrow(n.sentiment);
@@ -1432,6 +1485,7 @@ function renderAlerts() {
 }
 
 function alertCardHtml(a) {
+  const sent = sentimentOf((a.title||'')+' '+(a.summary||''));
   return '<div class="card" onclick="openDetail(\''+a.id+'\')">' +
     '<div class="card-accent" style="background:'+riskColor(a.risk)+'"></div>' +
     '<div class="card-body">' +
@@ -1439,7 +1493,7 @@ function alertCardHtml(a) {
       '<div class="card-source"><div class="source-dot"></div>'+esc(a.source)+' · '+esc(a.category)+' · <span class="'+(a.confirmed?'confirmed':'unconfirmed')+'">'+(a.confirmed?'✓ confirmed':'○ unconfirmed')+'</span></div>' +
       (a.summary ? '<div class="card-summary">'+esc(a.summary)+'</div>' : '') +
       '<div class="card-footer">' +
-        '<div class="tickers">'+a.tickers.map(t=>'<span class="ticker '+(State.watchlist.includes(t)?'watched':'')+'">'+t+'</span>').join('')+'</div>' +
+        '<div class="tickers">'+a.tickers.map(t=>'<span class="tk-dir">'+dirArrow(sent)+'<span class="ticker '+(State.portfolio.includes(t)?'owned':State.watchlist.includes(t)?'watched':'')+'">'+t+'</span></span>').join(' ')+'</div>' +
         '<div class="card-time" title="'+cairoFull(a.pubDate)+'">🕐 '+relTime(a.pubDate)+' · Cairo</div>' +
       '</div>' +
       '<div class="card-links">'+srcLinkOrNote(a.link, 'فتح المصدر')+'</div>' +
