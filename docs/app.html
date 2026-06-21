@@ -470,7 +470,7 @@ async function throttleRequest(minGap){
 }
 async function fetchVia(proxy, url) {
   await throttleRequest(80);
-  const r = await fetch(proxy.build(url), { signal: AbortSignal.timeout(5000) });
+  const r = await fetch(proxy.build(url), { signal: AbortSignal.timeout(4500) });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   if (proxy.kind === 'json') {
     const d = await r.json();
@@ -513,10 +513,10 @@ const FEED_CACHE_TTL = 6 * 3600e3;        // fall back to cached items up to 6h
 async function fetchFeed(feed, attempt) {
   const fresh = FEED_CACHE.get(feed.url);
   if (fresh && Date.now()-fresh.ts < FEED_FRESH_MS) return { feed, items: fresh.items, status:'connected', cached:true };
-  // Per-feed budget must exceed the per-proxy timeout (5s) so a slow/rate-limited
-  // first proxy doesn't doom the feed — it cycles to the next proxy. ~13s allows
-  // ~2-3 proxy attempts; the background sweep retries anything still failing.
-  const deadline = Date.now() + 13000;
+  // Per-feed budget exceeds the per-proxy timeout (4.5s) so a slow/rate-limited
+  // first proxy doesn't doom the feed — it cycles to the next proxy. ~9.5s allows
+  // ~2 proxy attempts and keeps the load fast; the sweep retries anything failing.
+  const deadline = Date.now() + 9500;
   let lastErr = '';
   for (const p of proxyOrder()) {
     if (Date.now() > deadline) break;
@@ -1257,7 +1257,7 @@ async function loadFeeds() {
 
   // Poll the full catalog (5 at a time) and render progressively as each feed
   // arrives — content shows up immediately instead of waiting for all 30+ feeds.
-  await poolMap(SOURCES, 5, (f) => fetchFeed(f, 0), (r, idx) => {
+  await poolMap(SOURCES, 7, (f) => fetchFeed(f, 0), (r, idx) => {
     if (job !== loadJobId) return;
     health[idx] = { name: r.feed.name, url: r.feed.url, group: r.feed.group, kind: r.feed.kind, status: r.status, count: r.items.length, error: r.error, sampleUrl: (r.items[0] && r.items[0].link) || '', cached: r.cached, empty: r.empty };
     if (r.items.length) for (const it of r.items) acc.push(it);
